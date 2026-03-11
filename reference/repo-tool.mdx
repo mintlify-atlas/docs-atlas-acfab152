@@ -1,0 +1,654 @@
+---
+title: Repo Tool Reference
+description: Complete reference for the repo command-line tool used to manage Redox OS recipes
+---
+
+## Overview
+
+The `repo` tool is the primary interface for managing recipe sources, building packages, and installing them into the filesystem. It replaces the older `repo.sh` script with a faster, more feature-rich Rust implementation.
+
+<Info>The repo tool is built from `src/bin/repo.rs` and is also available as `make r.*`, `make f.*`, etc. targets.</Info>
+
+## Usage
+
+```bash
+repo <command> [flags] <recipe1> <recipe2> ...
+```
+
+## Commands
+
+### fetch
+
+Download recipe source code.
+
+```bash
+repo fetch coreutils bash gcc
+```
+
+<Info>Respects `COOKBOOK_OFFLINE=true` to prevent network access if sources are already available.</Info>
+
+#### Behavior
+
+- Downloads sources from Git, tarballs, or other configured locations
+- Extracts archives to `recipes/*/source/` directories
+- Skips downloads if sources already exist (unless `clean` is run first)
+- Can operate in offline mode if sources are pre-fetched
+
+### cook
+
+Build recipe packages.
+
+```bash
+repo cook kernel drivers init
+```
+
+<Accordion title="Build Process">
+  1. Fetches sources if not already present
+  2. Runs the recipe's build script
+  3. Compiles sources in `recipes/*/source/`
+  4. Stages outputs to `recipes/*/target/$(TARGET)/stage/`
+  5. Creates package archives in `repo/$(TARGET)/`
+  6. Publishes packages to the repository
+</Accordion>
+
+#### Features
+
+- **TUI Mode**: Shows real-time build progress with colored output (default when not in CI)
+- **Parallel Building**: Builds dependencies concurrently
+- **Build Logs**: Saves logs to `build/logs/$(TARGET)/` when enabled
+- **Dependency Resolution**: Automatically builds required dependencies
+- **Package Caching**: Reuses previously built packages when possible
+
+### unfetch
+
+Delete recipe source code.
+
+```bash
+repo unfetch rust llvm
+```
+
+Removes the `source/` directory for specified recipes.
+
+### clean
+
+Delete recipe build artifacts.
+
+```bash
+repo clean gcc relibc
+```
+
+Removes:
+- `recipes/*/target/` directory (all architectures)
+- Build cache and intermediate files
+
+<Note>Does not remove source code. Use `unfetch` for that.</Note>
+
+### clean-target
+
+Delete recipe artifacts for one target only.
+
+```bash
+repo clean-target kernel
+```
+
+Removes only `recipes/*/target/$(TARGET)/`, preserving other architectures.
+
+### push
+
+Extract packages into the sysroot (filesystem).
+
+```bash
+repo push orbital netsurf cosmic-term
+```
+
+<ParamField path="--sysroot" type="path" default="./sysroot">
+  Target directory for package installation
+</ParamField>
+
+Extracts package archives from `repo/$(TARGET)/` into the sysroot.
+
+<Warning>Do not push packages while QEMU is running with the disk image mounted, as this may cause corruption.</Warning>
+
+### find
+
+Find the path to recipe directories.
+
+```bash
+repo find coreutils bash
+```
+
+Outputs:
+```
+recipes/core/coreutils
+recipes/core/bash
+```
+
+### cook-tree
+
+Show the build dependency tree.
+
+```bash
+repo cook-tree gcc
+```
+
+Outputs:
+```
+gcc
+├── binutils
+├── relibc
+│   ├── llvm
+│   └── kernel
+└── gcc-core
+
+Build summary: 5 need build, 1 may rebuild, with total of 5 recipes
+```
+
+### push-tree
+
+Show the package installation tree with sizes.
+
+```bash
+repo push-tree netsurf
+```
+
+Outputs:
+```
+netsurf (2.1 MB)
+├── libcurl (856 KB)
+│   └── openssl (1.4 MB)
+├── libpng (421 KB)
+└── libjpeg (612 KB)
+
+Estimated image size: 5.4 MB of 5 packages
+```
+
+## Common Flags
+
+### --cookbook
+
+Specify the recipes directory.
+
+```bash
+repo cook --cookbook=/path/to/recipes kernel
+```
+
+<ParamField path="--cookbook" type="path" default="$PWD/recipes">
+  Path to the recipes directory
+</ParamField>
+
+### --repo
+
+Specify the package repository directory.
+
+```bash
+repo cook --repo=/path/to/repo gcc
+```
+
+<ParamField path="--repo" type="path" default="$PWD/repo">
+  Path to the package output directory
+</ParamField>
+
+### --sysroot
+
+Specify the installation target directory.
+
+```bash
+repo push --sysroot=/mnt/redox coreutils
+```
+
+<ParamField path="--sysroot" type="path" default="$PWD/sysroot or /">
+  Target directory for `push` command. Defaults to `/` on Redox, `./sysroot` elsewhere.
+</ParamField>
+
+### --with-package-deps
+
+Include package (runtime) dependencies.
+
+```bash
+repo cook --with-package-deps netsurf
+```
+
+Builds the recipe plus all packages it needs at runtime (not just build dependencies).
+
+### --all
+
+Apply command to all recipes.
+
+```bash
+repo clean --all
+repo unfetch --all
+```
+
+<Warning>Use with caution, especially with `clean` and `unfetch`. Cannot be combined with explicit recipe names.</Warning>
+
+### --category
+
+Apply command to all recipes in a category.
+
+```bash
+repo cook --category=core
+repo clean --category=drivers
+```
+
+<ParamField path="--category" type="string">
+  Category subdirectory name (e.g., `core`, `games`, `drivers`)
+</ParamField>
+
+### --filesystem
+
+Use an installer TOML config to determine which recipes to build.
+
+```bash
+repo cook --filesystem=config/desktop.toml --with-package-deps
+```
+
+<ParamField path="--filesystem" type="path">
+  Path to filesystem configuration TOML file
+</ParamField>
+
+Builds all packages specified in the configuration, respecting build rules (source/binary/ignore).
+
+### --repo-binary
+
+Override recipes to use binary packages.
+
+```bash
+repo cook --repo-binary --filesystem=config/server.toml
+```
+
+Forces all recipes to use pre-built binary packages from the repository instead of building from source.
+
+## Environment Variables
+
+These environment variables control the repo tool's behavior:
+
+### CI
+
+Disable TUI when set.
+
+```bash
+CI=1 repo cook kernel
+```
+
+<ParamField path="CI" type="any" default="unset">
+  If set to any value, disables the interactive TUI and uses plain text output
+</ParamField>
+
+### COOKBOOK_LOGS
+
+Control log file creation.
+
+```bash
+COOKBOOK_LOGS=true repo cook gcc
+```
+
+<ParamField path="COOKBOOK_LOGS" type="true|false" default="!CI">
+  Whether to write build logs to files. Defaults to true unless CI is set.
+</ParamField>
+
+### COOKBOOK_OFFLINE
+
+Prevent network access.
+
+```bash
+COOKBOOK_OFFLINE=true repo cook kernel
+```
+
+<ParamField path="COOKBOOK_OFFLINE" type="true|false" default="false">
+  Prevent internet access if possible. Ignored when using the `fetch` command.
+</ParamField>
+
+### COOKBOOK_NONSTOP
+
+Continue building after failures.
+
+```bash
+COOKBOOK_NONSTOP=true repo cook --all
+```
+
+<ParamField path="COOKBOOK_NONSTOP" type="true|false" default="false">
+  Keep running even if a recipe build fails. Useful for CI builds.
+</ParamField>
+
+### COOKBOOK_COMPRESSED
+
+Build compressed packages.
+
+```bash
+COOKBOOK_COMPRESSED=true repo cook netsurf
+```
+
+<ParamField path="COOKBOOK_COMPRESSED" type="true|false" default="false">
+  Build packages in compressed (tar.gz) format instead of pkgar format
+</ParamField>
+
+### COOKBOOK_VERBOSE
+
+Print build results.
+
+```bash
+COOKBOOK_VERBOSE=false repo cook --all
+```
+
+<ParamField path="COOKBOOK_VERBOSE" type="true|false" default="true">
+  Print success/error messages for each recipe build
+</ParamField>
+
+### COOKBOOK_CLEAN_BUILD
+
+Remove build directory before building.
+
+```bash
+COOKBOOK_CLEAN_BUILD=true repo cook gcc
+```
+
+<ParamField path="COOKBOOK_CLEAN_BUILD" type="true|false" default="false">
+  Remove the build directory before starting compilation
+</ParamField>
+
+### COOKBOOK_CLEAN_TARGET
+
+Remove target directory after building.
+
+```bash
+COOKBOOK_CLEAN_TARGET=true repo cook kernel
+```
+
+<ParamField path="COOKBOOK_CLEAN_TARGET" type="true|false" default="false">
+  Remove the target/stage directory after building the package
+</ParamField>
+
+### COOKBOOK_WRITE_FILETREE
+
+Write stage file tree.
+
+```bash
+COOKBOOK_WRITE_FILETREE=true repo cook bash
+```
+
+<ParamField path="COOKBOOK_WRITE_FILETREE" type="true|false" default="false">
+  Write a text file listing all staged files
+</ParamField>
+
+### COOKBOOK_MAKE_JOBS
+
+Override build parallelism.
+
+```bash
+COOKBOOK_MAKE_JOBS=8 repo cook llvm
+```
+
+<ParamField path="COOKBOOK_MAKE_JOBS" type="number" default="nproc">
+  Number of parallel build jobs. Defaults to number of CPU cores.
+</ParamField>
+
+### COOKBOOK_WEB
+
+Generate package metadata for web.
+
+```bash
+COOKBOOK_WEB=true repo cook gcc
+```
+
+<ParamField path="COOKBOOK_WEB" type="true|false" default="false">
+  Generate web-friendly package metadata files
+</ParamField>
+
+### COOKBOOK_HOST_SYSROOT
+
+Set host sysroot for cross-compilation.
+
+```bash
+COOKBOOK_HOST_SYSROOT=/path/to/sysroot repo cook host:binutils
+```
+
+<ParamField path="COOKBOOK_HOST_SYSROOT" type="path">
+  Path to host system sysroot for cross-compiler recipes
+</ParamField>
+
+### COOKBOOK_CROSS_TARGET
+
+Set cross-compilation target.
+
+```bash
+COOKBOOK_CROSS_TARGET=x86_64-unknown-redox repo cook host:gcc
+```
+
+<ParamField path="COOKBOOK_CROSS_TARGET" type="string">
+  Target triple for cross-compilation
+</ParamField>
+
+### COOKBOOK_APPSTREAM
+
+Build AppStream metadata.
+
+```bash
+COOKBOOK_APPSTREAM=true repo cook --all
+```
+
+<ParamField path="COOKBOOK_APPSTREAM" type="true|false" default="false">
+  Generate AppStream metadata for packages (set by REPO_APPSTREAM=1)
+</ParamField>
+
+### COOKBOOK_NOSTRIP
+
+Disable binary stripping.
+
+```bash
+COOKBOOK_NOSTRIP=true repo cook kernel
+```
+
+<ParamField path="COOKBOOK_NOSTRIP" type="true|false" default="false">
+  Don't strip debug symbols from binaries (set by REPO_DEBUG=1)
+</ParamField>
+
+### COOKBOOK_DEBUG
+
+Enable debug builds.
+
+```bash
+COOKBOOK_DEBUG=true repo cook relibc
+```
+
+<ParamField path="COOKBOOK_DEBUG" type="true|false" default="false">
+  Build with debug symbols and less optimization (set by REPO_DEBUG=1)
+</ParamField>
+
+## TUI Mode
+
+When `CI` is not set and the terminal supports it, `repo cook` displays an interactive TUI:
+
+### Features
+
+- **Live Log Viewing**: Shows real-time build output for active recipes
+- **Progress Tracking**: Displays fetch and cook queues
+- **Color Coding**: Green for success, red for failures, yellow for active
+- **Automatic Scrolling**: Follows log output automatically
+- **Keyboard Controls**:
+  - Arrow keys: Scroll logs
+  - Page Up/Down: Fast scroll
+  - Home/End: Jump to top/bottom
+  - Tab: Switch between fetch/cook logs
+
+### Failure Handling
+
+When a build fails in TUI mode:
+
+1. The TUI exits and returns to the shell
+2. Full error context is printed to stderr
+3. Logs are saved to `build/logs/$(TARGET)/$(RECIPE).log`
+4. Exit code indicates failure
+
+With `COOKBOOK_NONSTOP=true`:
+- Failed recipes are skipped
+- Building continues with remaining recipes
+- All failures are logged
+
+## Recipe Selection
+
+The tool supports multiple ways to specify recipes:
+
+### By Name
+
+```bash
+repo cook coreutils bash gcc
+```
+
+### By Wildcard Pattern
+
+Not directly supported. Use `--category` or `--all` instead.
+
+### By Category
+
+```bash
+repo cook --category=core
+```
+
+Builds all recipes in `recipes/core/`.
+
+### By Filesystem Config
+
+```bash
+repo cook --filesystem=config/desktop.toml --with-package-deps
+```
+
+Builds all recipes listed in the TOML configuration.
+
+### With Dependencies
+
+```bash
+repo cook --with-package-deps netsurf
+```
+
+Builds the recipe plus all its runtime dependencies.
+
+## Dependency Resolution
+
+### Build Dependencies
+
+Automatically included when cooking recipes. These are specified in `recipe.toml` files.
+
+### Package Dependencies
+
+Included only when using `--with-package-deps` flag. These are runtime dependencies.
+
+### Dependency Types
+
+<Accordion title="Dependency Types in recipe.toml">
+  - **dependencies**: Build-time dependencies (always included)
+  - **build_dependencies**: Build tools needed during compilation
+  - **host_dependencies**: Dependencies for cross-compiler recipes
+  - **package_dependencies**: Runtime dependencies (only with `--with-package-deps`)
+</Accordion>
+
+## Build Modes
+
+### Source Mode
+
+Builds packages from source code (default).
+
+```bash
+repo cook gcc
+```
+
+### Binary Mode
+
+Uses pre-built binary packages from the repository.
+
+```bash
+repo cook --repo-binary --filesystem=config/desktop.toml
+```
+
+<Info>Binary mode is much faster but requires packages to be available in the binary repository.</Info>
+
+### Local Mode
+
+Forces building from local source, ignoring binary packages.
+
+```toml
+[packages]
+gcc = "local"
+```
+
+Specified in filesystem configuration files.
+
+### Ignore Mode
+
+Skips building certain packages.
+
+```toml
+[packages]
+debug-tools = "ignore"
+```
+
+## Exit Codes
+
+<ResponseField name="0" type="Success">
+  All operations completed successfully
+</ResponseField>
+
+<ResponseField name="1" type="Error">
+  One or more recipes failed to build, or invalid arguments provided
+</ResponseField>
+
+## Examples
+
+### Build a single recipe
+
+```bash
+repo cook coreutils
+```
+
+### Build with dependencies
+
+```bash
+repo cook --with-package-deps orbital
+```
+
+### Clean and rebuild
+
+```bash
+repo clean gcc && repo cook gcc
+```
+
+### Build entire desktop system
+
+```bash
+repo cook --filesystem=config/desktop.toml --with-package-deps
+```
+
+### Build in offline mode
+
+```bash
+COOKBOOK_OFFLINE=true repo cook kernel
+```
+
+### Build all recipes in a category
+
+```bash
+repo cook --category=games
+```
+
+### Show dependencies before building
+
+```bash
+repo cook-tree netsurf
+repo push-tree netsurf
+```
+
+### Build with verbose logging
+
+```bash
+COOKBOOK_VERBOSE=true COOKBOOK_LOGS=true repo cook --all
+```
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Make Commands" icon="hammer" href="/reference/make-commands">
+    Makefile targets that wrap the repo tool
+  </Card>
+  <Card title="Configuration Options" icon="gear" href="/reference/configuration-options">
+    Build system configuration variables
+  </Card>
+</CardGroup>

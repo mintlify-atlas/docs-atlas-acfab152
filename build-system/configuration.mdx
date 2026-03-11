@@ -1,0 +1,604 @@
+---
+title: Build Configuration
+description: Complete guide to configuring the Redox OS build system
+---
+
+## Overview
+
+The Redox OS build system is highly configurable through TOML configuration files and environment variables. This guide covers all configuration options and how to customize your build.
+
+## Configuration Methods
+
+There are three ways to configure the build system:
+
+<CardGroup cols={3}>
+  <Card title=".config File" icon="file">
+    Set build-time variables and options
+  </Card>
+  <Card title="TOML Configs" icon="file-code">
+    Define system packages and files
+  </Card>
+  <Card title="Environment" icon="terminal">
+    Override settings at runtime
+  </Card>
+</CardGroup>
+
+## The .config File
+
+The `.config` file in the repository root controls build system behavior.
+
+### Basic Configuration
+
+Create `.config` in the repository root:
+
+```bash .config
+# Build method: 1 for Podman, 0 for native
+PODMAN_BUILD?=1
+
+# Target architecture: x86_64, aarch64, i586, riscv64gc
+ARCH?=x86_64
+
+# Configuration profile: desktop, server, minimal, dev, etc.
+CONFIG_NAME?=desktop
+```
+
+### Build Optimization
+
+```bash .config
+# Use pre-built toolchain (much faster, highly recommended)
+PREFIX_BINARY?=1
+
+# Use pre-built packages instead of compiling (fastest option)
+REPO_BINARY?=1
+
+# Enable sccache for faster Rust compilation
+SCCACHE_BUILD?=1
+```
+
+<Tip>
+  For first-time builds, use `PREFIX_BINARY=1` and `REPO_BINARY=1` to reduce build time from hours to minutes.
+</Tip>
+
+### Debug Options
+
+```bash .config
+# Enable debug symbols and disable stripping
+REPO_DEBUG?=1
+
+# Continue building even if some packages fail
+REPO_NONSTOP?=1
+
+# Build without fetching sources (offline mode)
+REPO_OFFLINE?=1
+
+# Build appstream metadata for packages
+REPO_APPSTREAM?=1
+```
+
+### Filesystem Configuration
+
+```bash .config
+# Override filesystem size in MB (default: auto-calculated)
+FILESYSTEM_SIZE?=1024
+
+# Flags for redoxfs-mkfs (e.g., --encrypt for encryption)
+REDOXFS_MKFS_FLAGS?=
+```
+
+### Podman-Specific Options
+
+```bash .config
+# Image tag for the Podman container
+IMAGE_TAG?=redox-base
+
+# Enable SELinux volume flags (for Fedora/RHEL)
+USE_SELINUX?=1
+
+# Run filesystem tools inside Podman
+FSTOOLS_IN_PODMAN?=1
+
+# Custom containerfile path
+CONTAINERFILE?=podman/redox-base-containerfile
+
+# Enable layer cache push/pull
+PODMAN_CACHE_PUSH?=0
+PODMAN_CACHE_PULL?=1
+```
+
+### Advanced Options
+
+```bash .config
+# Use upstream Rust compiler instead of Redox fork (experimental)
+PREFIX_USE_UPSTREAM_RUST_COMPILER?=0
+
+# Board/device type for ARM builds (e.g., raspi3bp)
+BOARD?=
+
+# Disable FUSE mounting (for container environments)
+FSTOOLS_NO_MOUNT?=0
+```
+
+## TOML Configuration Files
+
+### Configuration File Location
+
+Configuration files are stored in the `config/` directory:
+
+```
+config/
+├── base.toml              # Base configuration (included by others)
+├── desktop.toml           # Desktop configuration
+├── server.toml            # Server configuration
+├── minimal.toml           # Minimal configuration
+├── dev.toml               # Development configuration
+├── x11.toml               # X11 desktop environment
+├── wayland.toml           # Wayland desktop environment
+├── acid.toml              # ACID test configuration
+├── auto-test.toml         # Automated testing
+└── $(ARCH)/
+    └── $(CONFIG_NAME).toml  # Architecture-specific configs
+```
+
+### TOML File Structure
+
+Configuration files use TOML format with these main sections:
+
+<Accordion title="[general] - General Settings" icon="gear">
+  ```toml
+  [general]
+  # Prompt for undefined settings
+  prompt = false
+  ```
+</Accordion>
+
+<Accordion title="[packages] - Package Selection" icon="box">
+  ```toml
+  [packages]
+  # Core system packages
+  kernel = {}
+  relibc = {}
+  
+  # Desktop packages
+  orbital = {}
+  
+  # Applications
+  nano = {}
+  ```
+  
+  Each package can have options:
+  ```toml
+  [packages]
+  gcc = { build_stage = 1 }
+  mesa = { skip = true }
+  ```
+</Accordion>
+
+<Accordion title="[[files]] - File Definitions" icon="file">
+  ```toml
+  # Regular file with content
+  [[files]]
+  path = "/etc/hostname"
+  data = "redox"
+  
+  # Directory
+  [[files]]
+  path = "/usr/bin"
+  data = ""
+  directory = true
+  mode = 0o755
+  
+  # Symlink
+  [[files]]
+  path = "/bin"
+  data = "usr/bin"
+  symlink = true
+  ```
+</Accordion>
+
+<Accordion title="[users] - User Configuration" icon="user">
+  ```toml
+  [users.root]
+  password = "password"
+  uid = 0
+  gid = 0
+  shell = "/usr/bin/ion"
+  
+  [users.user]
+  password = ""
+  shell = "/usr/bin/ion"
+  ```
+</Accordion>
+
+<Accordion title="[groups] - Group Configuration" icon="users">
+  ```toml
+  [groups.sudo]
+  gid = 1
+  members = ["user"]
+  ```
+</Accordion>
+
+### Example: base.toml
+
+Let's examine the base configuration that all others include:
+
+```toml config/base.toml
+# Base configuration included by other configurations
+
+[general]
+prompt = false
+
+[packages]
+base = {}
+base-initfs = {}
+bootloader = {}
+kernel = {}
+libgcc = {}
+libstdcxx = {}
+netdb = {}
+netutils = {}
+relibc = {}
+userutils = {}
+uutils = {}
+
+# Init script for base system
+[[files]]
+path = "/usr/lib/init.d/00_base"
+data = """
+# clear and recreate tmpdir with 0o1777 permission
+rm -rf /tmp
+mkdir -m a=rwxt /tmp
+
+notify ipcd
+notify ptyd
+nowait sudo --daemon
+"""
+
+# Network configuration
+[[files]]
+path = "/etc/net/ip"
+data = "10.0.2.15"
+
+[[files]]
+path = "/etc/net/ip_router"
+data = "10.0.2.2"
+
+[[files]]
+path = "/etc/net/ip_subnet"
+data = "255.255.255.0"
+
+[[files]]
+path = "/etc/net/dns"
+data = "9.9.9.9"
+
+# Users
+[users.root]
+password = "password"
+uid = 0
+gid = 0
+shell = "/usr/bin/ion"
+
+[users.user]
+password = ""
+shell = "/usr/bin/ion"
+
+[groups.sudo]
+gid = 1
+members = ["user"]
+```
+
+### Example: desktop.toml
+
+A simple desktop configuration:
+
+```toml config/desktop.toml
+# Include base configuration
+include = "base.toml"
+
+[packages]
+# Desktop environment
+orbital = {}
+
+# Applications
+file-manager = {}
+viewer = {}
+terminal = {}
+editor = {}
+
+# Graphics
+mesa = {}
+mesa-demos = {}
+
+# Fonts
+fonts-fira = {}
+```
+
+### Example: minimal.toml
+
+```toml config/minimal.toml
+include = "base.toml"
+
+[packages]
+# Only core packages from base.toml
+# No additional packages
+
+[[files]]
+path = "/etc/motd"
+data = "Welcome to Redox OS (minimal configuration)\n"
+```
+
+## Creating Custom Configurations
+
+### Step-by-Step Guide
+
+<Steps>
+  <Step title="Create Configuration File">
+    Create a new TOML file in the `config/` directory:
+    
+    ```bash
+    touch config/mycustom.toml
+    ```
+  </Step>
+  
+  <Step title="Include Base Configuration">
+    Start by including the base configuration:
+    
+    ```toml config/mycustom.toml
+    include = "base.toml"
+    
+    [general]
+    prompt = false
+    ```
+  </Step>
+  
+  <Step title="Add Packages">
+    Define packages to include:
+    
+    ```toml
+    [packages]
+    # Add your desired packages
+    nano = {}
+    bash = {}
+    git = {}
+    ```
+  </Step>
+  
+  <Step title="Configure Files">
+    Add custom files or configuration:
+    
+    ```toml
+    [[files]]
+    path = "/etc/motd"
+    data = "Welcome to My Custom Redox\n"
+    ```
+  </Step>
+  
+  <Step title="Build with Custom Config">
+    Use your configuration:
+    
+    ```bash
+    echo 'CONFIG_NAME=mycustom' >> .config
+    make all
+    ```
+  </Step>
+</Steps>
+
+### Custom Package Configuration
+
+Packages can have additional options:
+
+```toml
+[packages]
+# Simple package inclusion
+nano = {}
+
+# Package with build stage (for dependencies)
+gcc = { build_stage = 1 }
+
+# Skip package (useful when inheriting configs)
+mesa = { skip = true }
+
+# Package with custom environment
+python = { env = { PYTHON_VERSION = "3.11" } }
+```
+
+## Architecture-Specific Configuration
+
+You can create architecture-specific configurations:
+
+```
+config/
+├── x86_64/
+│   ├── desktop.toml
+│   └── server.toml
+├── aarch64/
+│   ├── desktop.toml
+│   └── raspi/
+│       └── desktop.toml
+└── riscv64gc/
+    └── minimal.toml
+```
+
+The build system automatically selects the most specific configuration:
+
+1. `config/$(ARCH)/$(BOARD)/$(CONFIG_NAME).toml`
+2. `config/$(ARCH)/$(CONFIG_NAME).toml`
+3. `config/$(CONFIG_NAME).toml`
+
+## Environment Variables
+
+You can override configuration at build time:
+
+```bash
+# Override architecture
+make all ARCH=aarch64
+
+# Override configuration
+make all CONFIG_NAME=server
+
+# Multiple overrides
+make all ARCH=x86_64 CONFIG_NAME=minimal REPO_BINARY=1
+
+# Override filesystem size
+make all FILESYSTEM_SIZE=2048
+```
+
+## Common Configuration Scenarios
+
+### Fast Build for Testing
+
+```bash .config
+PODMAN_BUILD?=1
+CONFIG_NAME?=minimal
+REPO_BINARY?=1
+PREFIX_BINARY?=1
+```
+
+### Development Build
+
+```bash .config
+PODMAN_BUILD?=0
+CONFIG_NAME?=dev
+REPO_DEBUG?=1
+REPO_BINARY?=1
+```
+
+### Full Desktop from Source
+
+```bash .config
+PODMAN_BUILD?=1
+CONFIG_NAME?=desktop
+REPO_BINARY?=0
+PREFIX_BINARY?=1
+```
+
+### CI/CD Build
+
+```bash .config
+PODMAN_BUILD?=1
+REPO_NONSTOP?=1
+REPO_BINARY?=1
+CI?=1
+```
+
+### Encrypted Filesystem
+
+```bash .config
+REDOXFS_MKFS_FLAGS?=--encrypt
+```
+
+## Configuration Reference
+
+### Build System Variables
+
+<ResponseField name="ARCH" type="string" default="x86_64">
+  Target architecture: `x86_64`, `aarch64`, `i586`, or `riscv64gc`
+</ResponseField>
+
+<ResponseField name="BOARD" type="string" default="">
+  Board/device type for ARM (e.g., `raspi3bp`)
+</ResponseField>
+
+<ResponseField name="CONFIG_NAME" type="string" default="desktop">
+  Configuration profile name
+</ResponseField>
+
+<ResponseField name="FILESYSTEM_CONFIG" type="string" default="auto">
+  Path to TOML configuration file (auto-detected)
+</ResponseField>
+
+<ResponseField name="FILESYSTEM_SIZE" type="integer" default="auto">
+  Filesystem size in MB (calculated from config if not set)
+</ResponseField>
+
+<ResponseField name="PODMAN_BUILD" type="integer" default="1">
+  Use Podman for building (1=yes, 0=no)
+</ResponseField>
+
+<ResponseField name="PREFIX_BINARY" type="integer" default="1">
+  Use pre-built toolchain binaries
+</ResponseField>
+
+<ResponseField name="REPO_BINARY" type="integer" default="0">
+  Use pre-built package binaries
+</ResponseField>
+
+<ResponseField name="REPO_DEBUG" type="integer" default="0">
+  Enable debug builds (keep symbols, no stripping)
+</ResponseField>
+
+<ResponseField name="REPO_NONSTOP" type="integer" default="0">
+  Continue building even if packages fail
+</ResponseField>
+
+<ResponseField name="REPO_OFFLINE" type="integer" default="0">
+  Do not fetch sources (offline mode)
+</ResponseField>
+
+<ResponseField name="REPO_APPSTREAM" type="integer" default="0">
+  Build appstream metadata
+</ResponseField>
+
+<ResponseField name="SCCACHE_BUILD" type="integer" default="auto">
+  Enable sccache for Rust builds (auto-enabled in containers)
+</ResponseField>
+
+### QEMU Variables
+
+<ResponseField name="kvm" type="string" default="auto">
+  Enable KVM acceleration (`yes`, `no`, or auto)
+</ResponseField>
+
+<ResponseField name="gpu" type="string" default="vga">
+  GPU type: `vga`, `virtio`, `ramfb`, `none`
+</ResponseField>
+
+<ResponseField name="audio" type="string" default="auto">
+  Audio device: `ac97`, `hda`, `no`
+</ResponseField>
+
+<ResponseField name="disk" type="string" default="auto">
+  Disk interface: `ata`, `nvme`, `sdcard`
+</ResponseField>
+
+<ResponseField name="QEMU_MEM" type="integer" default="2048">
+  QEMU memory size in MB
+</ResponseField>
+
+<ResponseField name="QEMU_SMP" type="integer" default="4">
+  Number of CPU cores for QEMU
+</ResponseField>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Base Configuration" icon="layer-group">
+    Always include `base.toml` or another complete configuration as your starting point.
+  </Accordion>
+  
+  <Accordion title="Keep Configs Minimal" icon="compress">
+    Only specify packages and files that differ from your base configuration.
+  </Accordion>
+  
+  <Accordion title="Test Incrementally" icon="vial">
+    When creating custom configs, add packages gradually and test each addition.
+  </Accordion>
+  
+  <Accordion title="Document Changes" icon="file-lines">
+    Add comments to your configuration files explaining custom settings.
+  </Accordion>
+  
+  <Accordion title="Version Control" icon="code-branch">
+    Keep your `.config` and custom TOML files in version control (but not in the main Redox repo).
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Recipe System" icon="book" href="/build-system/recipes">
+    Learn how packages are built
+  </Card>
+  <Card title="Podman Build" icon="docker" href="/build-system/podman-build">
+    Set up Podman build environment
+  </Card>
+</CardGroup>

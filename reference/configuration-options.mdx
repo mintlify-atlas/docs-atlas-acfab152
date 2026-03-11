@@ -1,0 +1,761 @@
+---
+title: Configuration Options Reference
+description: Complete reference for all build system configuration variables and filesystem configuration files
+---
+
+## Overview
+
+The Redox OS build system is highly configurable through environment variables, Make variables, and TOML configuration files. This reference documents all available configuration options.
+
+## Build Configuration Variables
+
+These variables are set in `.config`, `mk/config.mk`, or via environment variables.
+
+### Architecture Configuration
+
+#### ARCH
+
+Target architecture for Redox OS.
+
+```bash
+make ARCH=x86_64
+```
+
+<ParamField path="ARCH" type="string" default="$(HOST_ARCH)">
+  Target architecture: `x86_64`, `i586`, `aarch64`, or `riscv64gc`
+</ParamField>
+
+<Note>Defaults to the host architecture. Set to `i586` instead of `i686` for 32-bit x86.</Note>
+
+#### BOARD
+
+Sub-device type for architecture-specific boards.
+
+```bash
+make ARCH=aarch64 BOARD=raspi3bp
+```
+
+<ParamField path="BOARD" type="string" default="">
+  Board identifier (e.g., `raspi3bp` for Raspberry Pi 3 B+)
+</ParamField>
+
+Currently used only for aarch64 boards.
+
+#### CONFIG_NAME
+
+Filesystem configuration profile name.
+
+```bash
+make CONFIG_NAME=desktop
+```
+
+<ParamField path="CONFIG_NAME" type="string" default="desktop">
+  Configuration profile: `desktop`, `server`, `demo`, `minimal`, etc.
+</ParamField>
+
+Matches TOML files in `config/` directory.
+
+#### FILESYSTEM_CONFIG
+
+Path to the filesystem configuration file.
+
+```bash
+make FILESYSTEM_CONFIG=config/custom.toml
+```
+
+<ParamField path="FILESYSTEM_CONFIG" type="path" default="auto">
+  Path to filesystem TOML configuration. Auto-detected from ARCH, BOARD, and CONFIG_NAME.
+</ParamField>
+
+Default resolution order:
+1. `config/$(ARCH)/$(BOARD)/$(CONFIG_NAME).toml`
+2. `config/$(ARCH)/$(CONFIG_NAME).toml`
+3. `config/$(CONFIG_NAME).toml`
+
+### Toolchain Configuration
+
+#### PREFIX_BINARY
+
+Use prebuilt cross-compiler toolchain.
+
+```bash
+make PREFIX_BINARY=1
+```
+
+<ParamField path="PREFIX_BINARY" type="0|1" default="1">
+  Download and use binary toolchain packages instead of building from source
+</ParamField>
+
+<Info>Binary toolchains are much faster to set up. Set to `0` to build the toolchain from source.</Info>
+
+#### PREFIX_USE_UPSTREAM_RUST_COMPILER
+
+Use official Rust nightly compiler.
+
+```bash
+make PREFIX_USE_UPSTREAM_RUST_COMPILER=1
+```
+
+<ParamField path="PREFIX_USE_UPSTREAM_RUST_COMPILER" type="0|1" default="0">
+  Use upstream Rust nightly instead of Redox-patched version. Experimental.
+</ParamField>
+
+<Warning>Only available for Tier 2 targets. May require `-Zbuild-std` for Tier 3 targets.</Warning>
+
+### Repository Configuration
+
+#### REPO_BINARY
+
+Use binary packages instead of building from source.
+
+```bash
+make REPO_BINARY=1
+```
+
+<ParamField path="REPO_BINARY" type="0|1" default="0">
+  Download and install binary packages instead of compiling recipes
+</ParamField>
+
+Sets `COOKBOOK_HOST_SYSROOT` and passes `--repo-binary` to repo tool.
+
+#### REPO_APPSTREAM
+
+Build AppStream metadata.
+
+```bash
+make REPO_APPSTREAM=1
+```
+
+<ParamField path="REPO_APPSTREAM" type="0|1" default="0">
+  Generate AppStream metadata for package repositories
+</ParamField>
+
+Sets `COOKBOOK_APPSTREAM=true`.
+
+#### REPO_NONSTOP
+
+Continue building after failures.
+
+```bash
+make REPO_NONSTOP=1
+```
+
+<ParamField path="REPO_NONSTOP" type="0|1" default="0">
+  Keep building remaining packages even if some fail
+</ParamField>
+
+Sets `COOKBOOK_NONSTOP=true`. Useful for CI builds.
+
+#### REPO_OFFLINE
+
+Build without network access.
+
+```bash
+make REPO_OFFLINE=1
+```
+
+<ParamField path="REPO_OFFLINE" type="0|1" default="0">
+  Prevent internet access during builds. Requires pre-fetched sources.
+</ParamField>
+
+Sets `COOKBOOK_OFFLINE=true`. Run `make cargo-fetch` first.
+
+#### REPO_DEBUG
+
+Enable debug builds.
+
+```bash
+make REPO_DEBUG=1
+```
+
+<ParamField path="REPO_DEBUG" type="0|1" default="0">
+  Build with debug symbols and disable stripping
+</ParamField>
+
+Sets `COOKBOOK_NOSTRIP=true` and `COOKBOOK_DEBUG=true`.
+
+### Filesystem Configuration
+
+#### FILESYSTEM_SIZE
+
+Size of the filesystem image in megabytes.
+
+```bash
+make FILESYSTEM_SIZE=1024
+```
+
+<ParamField path="FILESYSTEM_SIZE" type="number" default="from config">
+  Filesystem size in MB. Defaults to value from FILESYSTEM_CONFIG.
+</ParamField>
+
+#### REDOXFS_MKFS_FLAGS
+
+Flags passed to redoxfs-mkfs.
+
+```bash
+make REDOXFS_MKFS_FLAGS="--encrypt"
+```
+
+<ParamField path="REDOXFS_MKFS_FLAGS" type="string" default="">
+  Additional flags for filesystem creation. Use `--encrypt` for encryption.
+</ParamField>
+
+### Container Configuration
+
+#### PODMAN_BUILD
+
+Build inside Podman container.
+
+```bash
+make PODMAN_BUILD=1
+```
+
+<ParamField path="PODMAN_BUILD" type="0|1" default="1">
+  Execute builds inside Podman container for reproducibility
+</ParamField>
+
+<Info>Set to `0` to build directly on the host system. Required for native Redox builds.</Info>
+
+#### FSTOOLS_IN_PODMAN
+
+Build filesystem tools in container.
+
+```bash
+make FSTOOLS_IN_PODMAN=1
+```
+
+<ParamField path="FSTOOLS_IN_PODMAN" type="0|1" default="0">
+  Build redoxfs and installer tools inside Podman instead of on host
+</ParamField>
+
+#### FSTOOLS_NO_MOUNT
+
+Disable FUSE mounting.
+
+```bash
+make FSTOOLS_NO_MOUNT=1
+```
+
+<ParamField path="FSTOOLS_NO_MOUNT" type="0|1" default="0">
+  Build without FUSE support. Required when FUSE is unavailable (e.g., in containers).
+</ParamField>
+
+#### SCCACHE_BUILD
+
+Enable sccache for Cargo builds.
+
+```bash
+make SCCACHE_BUILD=1
+```
+
+<ParamField path="SCCACHE_BUILD" type="0|1" default="auto">
+  Use sccache to speed up Cargo compilation. Auto-enabled inside Podman.
+</ParamField>
+
+#### CONTAINERFILE
+
+Path to Containerfile for base image.
+
+```bash
+make CONTAINERFILE=podman/custom-containerfile
+```
+
+<ParamField path="CONTAINERFILE" type="path" default="podman/redox-base-containerfile">
+  Containerfile used to build the Podman base image
+</ParamField>
+
+### Derived Variables
+
+These are automatically computed and should not normally be set manually:
+
+<Accordion title="Computed Build Variables">
+  - **TARGET**: Full target triple (e.g., `x86_64-unknown-redox`)
+  - **BUILD**: Build directory path (`build/$(ARCH)/$(CONFIG_NAME)`)
+  - **PREFIX**: Toolchain prefix directory
+  - **MOUNT_DIR**: Filesystem mount point
+  - **INSTALLER**: Path to redox_installer binary
+  - **REDOXFS**: Path to redoxfs binary
+  - **REPO_BIN**: Path to repo tool binary
+</Accordion>
+
+## Filesystem Configuration Files
+
+Filesystem configurations are TOML files in the `config/` directory that specify which packages to include in images.
+
+### Location
+
+```
+config/
+├── desktop.toml           # Cross-platform configs
+├── server.toml
+├── minimal.toml
+├── x86_64/
+│   ├── desktop.toml       # Architecture-specific
+│   └── demo.toml
+├── aarch64/
+│   ├── raspi3bp/
+│   │   └── minimal.toml   # Board-specific
+│   └── demo.toml
+└── riscv64gc/
+    └── demo.toml
+```
+
+### Structure
+
+```toml
+# Include other configuration files
+include = ["base.toml", "server.toml"]
+
+# General settings
+[general]
+filesystem_size = 650  # Size in MB
+repo_binary = false    # Use binary packages
+
+# Package configuration
+[packages]
+coreutils = {}         # Include with default settings
+bash = {}              # Include package
+gcc = "source"         # Force build from source
+llvm = "binary"        # Force use binary package
+debug-tools = "ignore" # Don't include
+kernel = "local"       # Build from local source
+```
+
+### General Section
+
+#### filesystem_size
+
+<ParamField path="general.filesystem_size" type="number" required>
+  Size of the filesystem in megabytes
+</ParamField>
+
+```toml
+[general]
+filesystem_size = 1024
+```
+
+#### repo_binary
+
+<ParamField path="general.repo_binary" type="boolean" default="false">
+  Whether to use binary packages by default
+</ParamField>
+
+```toml
+[general]
+repo_binary = true
+```
+
+### Packages Section
+
+Specifies which packages to include and how to build them.
+
+#### Package Rules
+
+<ParamField path="packages.*" type="object | string">
+  Package configuration. Can be `{}`, `"source"`, `"binary"`, `"local"`, or `"ignore"`
+</ParamField>
+
+```toml
+[packages]
+# Include with defaults
+coreutils = {}
+
+# Build from source (even if repo_binary=true)
+gcc = "source"
+
+# Use binary package (even if repo_binary=false)
+rust = "binary"
+
+# Build from local source, ignore remote changes
+kernel = "local"
+
+# Don't include this package
+old-editor = "ignore"
+```
+
+#### Build Modes
+
+<AccordionGroup>
+  <Accordion title="source">
+    Build the package from source code. Downloads sources and compiles them.
+    
+    ```toml
+    [packages]
+    gcc = "source"
+    ```
+  </Accordion>
+  
+  <Accordion title="binary">
+    Download and install pre-built binary package from the repository.
+    
+    ```toml
+    [packages]
+    rust = "binary"
+    ```
+  </Accordion>
+  
+  <Accordion title="local">
+    Build from local source without updating from remote. Useful for development.
+    
+    ```toml
+    [packages]
+    my-driver = "local"
+    ```
+  </Accordion>
+  
+  <Accordion title="ignore">
+    Skip this package entirely. Used to exclude packages from included configs.
+    
+    ```toml
+    include = ["desktop.toml"]
+    
+    [packages]
+    # Override package from desktop.toml
+    games = "ignore"
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Include Directive
+
+Load packages from other configuration files.
+
+```toml
+include = ["base.toml", "wayland.toml"]
+
+[general]
+filesystem_size = 800
+
+[packages]
+# Add more packages or override included ones
+cosmic-term = {}
+orbterm = "ignore"  # Override from base.toml
+```
+
+<Info>Later includes and local definitions override earlier ones. Package rules are merged.</Info>
+
+### Example Configurations
+
+#### Minimal Desktop
+
+```toml
+include = ["base.toml"]
+
+[general]
+filesystem_size = 350
+
+[packages]
+orbital = {}
+orbterm = {}
+orbtk = {}
+orbutils = {}
+```
+
+#### Full Desktop
+
+```toml
+include = ["desktop-minimal.toml", "server.toml"]
+
+[general]
+filesystem_size = 650
+
+[packages]
+cosmic-edit = {}
+cosmic-files = {}
+cosmic-term = {}
+netsurf = {}
+games = {}
+```
+
+#### Server Configuration
+
+```toml
+include = ["base.toml"]
+
+[general]
+filesystem_size = 400
+
+[packages]
+sshd = {}
+httpd = {}
+iptables = {}
+orbital = "ignore"  # No GUI on servers
+```
+
+#### Development Configuration
+
+```toml
+include = ["desktop.toml"]
+
+[general]
+filesystem_size = 1200
+
+[packages]
+gcc = {}
+rust = {}
+llvm = {}
+git = {}
+make = {}
+kernel = "local"  # Build from working directory
+```
+
+## QEMU Configuration Variables
+
+These variables control QEMU emulation behavior.
+
+### Hardware Emulation
+
+#### kvm
+
+<ParamField path="kvm" type="yes|no" default="auto">
+  Enable KVM/HVF hardware acceleration
+</ParamField>
+
+```bash
+make qemu kvm=yes
+make qemu kvm=no
+```
+
+Auto-enabled when host and guest architectures match.
+
+#### gpu
+
+<ParamField path="gpu" type="vga|virtio|virtio-gl|ramfb|multi|no" default="vga">
+  Graphics adapter type
+</ParamField>
+
+```bash
+make qemu gpu=virtio
+make qemu gpu=no  # Headless
+```
+
+- `vga`: Standard VGA adapter (x86 only)
+- `virtio`: VirtIO GPU (better performance)
+- `virtio-gl`: VirtIO GPU with OpenGL acceleration
+- `ramfb`: RAM framebuffer (ARM/RISC-V)
+- `multi`: Multiple displays
+- `no`: No graphics (serial only)
+
+#### audio
+
+<ParamField path="audio" type="hda|ac97|no" default="hda">
+  Audio device type
+</ParamField>
+
+```bash
+make qemu audio=ac97
+make qemu audio=no
+```
+
+- `hda`: Intel High Definition Audio
+- `ac97`: AC'97 audio (i586 default)
+- `no`: No audio
+
+#### net
+
+<ParamField path="net" type="e1000|rtl8139|virtio|usb-net|redir|bridge|no" default="e1000">
+  Network adapter type
+</ParamField>
+
+```bash
+make qemu net=virtio
+make qemu net=redir  # With port forwarding
+make qemu net=no
+```
+
+- `e1000`: Intel E1000 (default, best compatibility)
+- `rtl8139`: Realtek RTL8139
+- `virtio`: VirtIO network (better performance)
+- `usb-net`: USB network adapter
+- `redir`: E1000 with port forwarding
+- `bridge`: Bridge to host network
+- `no`: No network
+
+#### disk
+
+<ParamField path="disk" type="nvme|ata|usb|virtio|sdcard|cdrom" default="nvme">
+  Disk controller type
+</ParamField>
+
+```bash
+make qemu disk=ata
+make qemu disk=nvme
+```
+
+- `nvme`: NVMe controller (default, fastest)
+- `ata`: ATA/AHCI controller
+- `usb`: USB storage
+- `virtio`: VirtIO block device
+- `sdcard`: SD card (ARM boards)
+- `cdrom`: Boot from ISO as CD-ROM
+
+### System Configuration
+
+#### QEMU_SMP
+
+<ParamField path="QEMU_SMP" type="number" default="arch-specific">
+  Number of CPU cores
+</ParamField>
+
+```bash
+make qemu QEMU_SMP=8
+```
+
+Defaults: x86_64=4, i586=1, aarch64=1, riscv64gc=4
+
+#### QEMU_MEM
+
+<ParamField path="QEMU_MEM" type="number" default="arch-specific">
+  Memory size in megabytes
+</ParamField>
+
+```bash
+make qemu QEMU_MEM=4096
+```
+
+Defaults: x86_64=2048, i586=1024, others=2048
+
+#### serial
+
+<ParamField path="serial" type="yes|no" default="yes">
+  Enable serial console
+</ParamField>
+
+```bash
+make qemu serial=no
+```
+
+#### gdb
+
+<ParamField path="gdb" type="yes|no|nonblock" default="no">
+  GDB debugging support
+</ParamField>
+
+```bash
+make qemu gdb=yes  # Wait for GDB
+make qemu gdb=nonblock  # Don't wait
+```
+
+Starts GDB server on port 1234.
+
+#### live
+
+<ParamField path="live" type="yes|no" default="no">
+  Boot from live ISO
+</ParamField>
+
+```bash
+make qemu live=yes
+```
+
+#### uefi
+
+<ParamField path="uefi" type="yes|no" default="yes">
+  Use UEFI boot (x86_64/aarch64)
+</ParamField>
+
+```bash
+make qemu uefi=no  # Legacy BIOS on x86_64
+```
+
+#### iommu
+
+<ParamField path="iommu" type="yes|no" default="no">
+  Enable IOMMU
+</ParamField>
+
+```bash
+make qemu iommu=yes
+```
+
+#### usb
+
+<ParamField path="usb" type="yes|no" default="yes">
+  Enable USB controllers
+</ParamField>
+
+```bash
+make qemu usb=no
+```
+
+### Advanced Options
+
+#### qemu_serial_logfile
+
+<ParamField path="qemu_serial_logfile" type="path">
+  Log serial output to file
+</ParamField>
+
+```bash
+make qemu qemu_serial_logfile=serial.log
+```
+
+#### bridge
+
+<ParamField path="bridge" type="string">
+  Bridge network adapter to host bridge
+</ParamField>
+
+```bash
+make qemu bridge=br0
+```
+
+#### netboot
+
+<ParamField path="netboot" type="yes|no" default="no">
+  Enable network boot
+</ParamField>
+
+```bash
+make qemu netboot=yes
+```
+
+#### redoxer
+
+<ParamField path="redoxer" type="yes|no" default="no">
+  Enable Redoxer exit codes
+</ParamField>
+
+```bash
+make qemu redoxer=yes
+```
+
+Exit code 51 = success, 53 = failure.
+
+## Per-Host Variables
+
+These are automatically detected based on the host OS:
+
+### macOS
+
+- `FUMOUNT=umount`
+- `SED=gsed`
+- `FIND=gfind`
+- `VB_AUDIO=coreaudio`
+
+### FreeBSD
+
+- `FIND=gfind`
+- `FUMOUNT=sudo umount`
+- `VB_AUDIO=pulse`
+
+### Linux
+
+- `FUMOUNT=fusermount3 -u` (or `fusermount -u`)
+- `VB_AUDIO=pulse`
+
+### Redox
+
+- `PODMAN_BUILD=0`
+- `HOSTED_REDOX=1`
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Make Commands" icon="hammer" href="/reference/make-commands">
+    All available Makefile targets
+  </Card>
+  <Card title="Repo Tool" icon="wrench" href="/reference/repo-tool">
+    Command-line tool for package management
+  </Card>
+</CardGroup>

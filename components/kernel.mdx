@@ -1,0 +1,106 @@
+---
+title: Kernel
+description: The Redox microkernel written in Rust
+---
+
+## Overview
+
+The Redox kernel is a **microkernel** written entirely in Rust, emphasizing safety, reliability, and performance. It forms the core of Redox OS and provides essential services for process management, memory management, and inter-process communication.
+
+<Card title="Kernel Repository" icon="code" href="https://gitlab.redox-os.org/redox-os/kernel">
+  View the kernel source code on GitLab
+</Card>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Microkernel Architecture" icon="cube">
+    Minimal kernel design with most services running in userspace
+  </Card>
+  <Card title="Memory Safety" icon="shield">
+    Written in Rust to prevent memory-related vulnerabilities
+  </Card>
+  <Card title="Process Isolation" icon="lock">
+    Strong isolation between processes for enhanced security
+  </Card>
+  <Card title="Scheme-based I/O" icon="network-wired">
+    Unique URL-like scheme system for resource access
+  </Card>
+</CardGroup>
+
+## Architecture
+
+The Redox kernel follows a microkernel design philosophy, inspired by systems like seL4 and MINIX. This means:
+
+- **Minimal kernel space**: Only essential services run in kernel mode
+- **Userspace drivers**: Device drivers run as separate processes
+- **IPC-based communication**: Processes communicate through well-defined interfaces
+- **Scheme-based I/O**: Resources are accessed through URL-like schemes
+
+## Kernel Schemes
+
+The kernel provides several built-in schemes for low-level operations:
+
+```toml
+# Example schemes available from the kernel
+schemes = [
+  "debug",     # Debugging interface
+  "event",     # Event handling
+  "memory",    # Memory access
+  "pipe",      # Pipe communication
+  "serio",     # Serial I/O
+  "irq",       # Interrupt handling
+  "time",      # Time services
+  "sys",       # System information
+]
+```
+
+## System Initialization
+
+The kernel initializes the system and starts essential services through the init system:
+
+```bash
+# Base initialization script
+rm -rf /tmp
+mkdir -m a=rwxt /tmp
+
+notify ipcd
+notify ptyd
+nowait sudo --daemon
+```
+
+## Building the Kernel
+
+The kernel is included in the base system configuration:
+
+```toml
+[packages]
+kernel = {}
+```
+
+<Info>
+  The kernel is automatically built as part of the Redox OS build system. See the [Build Instructions](https://doc.redox-os.org/book/podman-build.html) for details.
+</Info>
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="Kernel Repository" icon="gitlab" href="https://gitlab.redox-os.org/redox-os/kernel">
+    Source code and development
+  </Card>
+  <Card title="Redox Book" icon="book" href="https://doc.redox-os.org/book/">
+    Comprehensive documentation
+  </Card>
+  <Card title="Contributing" icon="hand-holding-heart" href="https://doc.redox-os.org/book/">
+    How to contribute to the kernel
+  </Card>
+  <Card title="Developer FAQ" icon="question" href="https://doc.redox-os.org/book/developer-faq.html">
+    Common development questions
+  </Card>
+</CardGroup>
+
+## Maintainer
+
+<Card title="Jeremy Soller (@jackpot51)" icon="user">
+  Primary maintainer of the Redox kernel
+</Card>

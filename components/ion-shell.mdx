@@ -1,0 +1,246 @@
+---
+title: Ion Shell
+description: The default shell for Redox OS
+---
+
+## Overview
+
+**Ion** is the default shell for Redox OS, designed to be modern, fast, and safe. Written in Rust, Ion provides a familiar command-line interface with advanced scripting capabilities.
+
+<Card title="Ion Repository" icon="code" href="https://gitlab.redox-os.org/redox-os/ion">
+  View the Ion shell source code on GitLab
+</Card>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Modern Syntax" icon="terminal">
+    Clean, intuitive syntax inspired by modern shells
+  </Card>
+  <Card title="Rust Performance" icon="gauge-high">
+    Fast execution with low memory overhead
+  </Card>
+  <Card title="Type Safety" icon="shield">
+    Built-in type checking for variables and functions
+  </Card>
+  <Card title="Interactive Features" icon="keyboard">
+    Advanced tab completion and history management
+  </Card>
+</CardGroup>
+
+## Getting Started
+
+Ion is the default shell for both root and regular users in Redox OS:
+
+```toml
+[users.root]
+password = "password"
+uid = 0
+gid = 0
+shell = "/usr/bin/ion"
+
+[users.user]
+password = ""
+shell = "/usr/bin/ion"
+```
+
+## Basic Usage
+
+<Tabs>
+  <Tab title="Commands">
+    ```bash
+    # Run commands like any shell
+    ls -la
+    cd /home/user
+    echo "Hello, Redox!"
+    
+    # Pipe commands
+    cat file.txt | grep "pattern" | sort
+    
+    # Background processes
+    long_running_command &
+    ```
+  </Tab>
+  <Tab title="Variables">
+    ```bash
+    # Define variables
+    let name = "Redox"
+    let count:int = 42
+    
+    # Use variables
+    echo $name
+    echo "Count: $count"
+    
+    # Arrays
+    let files = ["file1.txt" "file2.txt" "file3.txt"]
+    echo @files
+    ```
+  </Tab>
+  <Tab title="Functions">
+    ```bash
+    # Define a function
+    fn greet name:str
+        echo "Hello, $name!"
+    end
+    
+    # Call the function
+    greet "World"
+    
+    # Function with return value
+    fn add x:int y:int -> int
+        echo $((x + y))
+    end
+    
+    let result = $(add 5 10)
+    ```
+  </Tab>
+  <Tab title="Control Flow">
+    ```bash
+    # If statements
+    if test -f "file.txt"
+        echo "File exists"
+    else
+        echo "File not found"
+    end
+    
+    # For loops
+    for file in *.txt
+        echo "Processing $file"
+    end
+    
+    # While loops
+    let count = 0
+    while test $count -lt 5
+        echo $count
+        let count += 1
+    end
+    ```
+  </Tab>
+</Tabs>
+
+## Configuration
+
+<Info>
+  Ion can be configured through configuration files in the user's home directory.
+</Info>
+
+Ion is installed as part of the base system:
+
+```toml
+[packages]
+base = {}  # Includes Ion shell
+```
+
+## Built-in Commands
+
+Ion provides several built-in commands:
+
+| Command | Description |
+|---------|-------------|
+| `cd` | Change directory |
+| `echo` | Print text to stdout |
+| `test` | Evaluate conditional expressions |
+| `let` | Define variables |
+| `fn` | Define functions |
+| `alias` | Create command aliases |
+| `export` | Export environment variables |
+| `source` | Execute commands from a file |
+
+## Scripting
+
+Ion supports advanced scripting with modern features:
+
+```bash
+#!/usr/bin/ion
+
+# Ion script example
+let name = "Redox"
+let version = "0.9.0"
+
+fn show_info
+    echo "Operating System: $name"
+    echo "Version: $version"
+end
+
+fn check_system
+    if test -d "/usr/bin"
+        echo "System directories OK"
+    else
+        echo "Warning: System directories missing"
+    end
+end
+
+show_info
+check_system
+```
+
+## Environment Variables
+
+Ion works with standard environment variables:
+
+```bash
+# Set environment variables
+export PATH="/usr/bin:/bin"
+export HOME="/home/user"
+
+# Access environment variables
+echo $PATH
+echo $HOME
+
+# Use in commands
+cd $HOME
+ls $HOME/documents
+```
+
+## Integration with Redox
+
+Ion integrates seamlessly with Redox OS features:
+
+- **Scheme access**: Direct access to Redox schemes
+- **Process management**: Native support for Redox processes
+- **System integration**: Works with init system and services
+
+```bash
+# Access schemes directly
+cat scheme:debug
+echo "test" > scheme:log
+
+# Manage system services
+notify ipcd
+notify ptyd
+```
+
+## Performance
+
+Ion is optimized for performance:
+
+- **Fast startup**: Minimal initialization time
+- **Low memory**: Efficient memory usage
+- **Quick execution**: Optimized command parsing and execution
+
+<Note>
+  Ion is written in Rust, providing memory safety without garbage collection overhead.
+</Note>
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="Ion Repository" icon="gitlab" href="https://gitlab.redox-os.org/redox-os/ion">
+    Source code and development
+  </Card>
+  <Card title="Termion Library" icon="terminal" href="https://gitlab.redox-os.org/redox-os/termion">
+    Terminal library used by Ion
+  </Card>
+  <Card title="Redox Book" icon="book" href="https://doc.redox-os.org/book/">
+    System documentation
+  </Card>
+  <Card title="Trying Out Redox" icon="play" href="https://doc.redox-os.org/book/trying-out-redox.html">
+    Get started with Redox and Ion
+  </Card>
+</CardGroup>
+
+## Maintainer
+
+<Card title="Jeremy Soller (@jackpot51)" icon="user">
+  Primary maintainer of Ion shell
+</Card>

@@ -1,0 +1,668 @@
+---
+title: Recipe Format Reference
+description: Complete specification of the recipe.toml format for Redox OS packages
+---
+
+## Overview
+
+Recipes are TOML files that define how to download, build, and package software for Redox OS. Each recipe is stored in `recipes/<category>/<package>/recipe.toml`.
+
+## Recipe Structure
+
+A recipe consists of up to four main sections:
+
+```toml
+[source]      # How to obtain source code
+[build]       # How to compile the source
+[package]     # Runtime metadata and dependencies
+[[optional-packages]]  # Additional packages from same source
+```
+
+## Source Section
+
+Defines where and how to download the source code.
+
+### Git Source
+
+Clone from a Git repository:
+
+```toml
+[source]
+git = "https://gitlab.redox-os.org/redox-os/ion.git"
+branch = "master"
+rev = "abc123..."
+upstream = "https://github.com/original/repo.git"
+shallow_clone = true
+patches = ["fix.patch"]
+script = "./autogen.sh"
+```
+
+**Fields:**
+
+<ParamField path="git" type="string" required>
+  URL to the Git repository
+</ParamField>
+
+<ParamField path="branch" type="string">
+  Git branch to track (recommended for reproducibility)
+</ParamField>
+
+<ParamField path="rev" type="string">
+  Specific Git commit SHA (recommended for reproducible builds)
+</ParamField>
+
+<ParamField path="upstream" type="string">
+  URL to upstream repository for reference
+</ParamField>
+
+<ParamField path="shallow_clone" type="boolean">
+  Use treeless clone for faster downloads (default: true if `rev` specified)
+</ParamField>
+
+<ParamField path="patches" type="array">
+  List of patch files to apply after cloning
+</ParamField>
+
+<ParamField path="script" type="string">
+  Shell script to run after cloning and patching
+</ParamField>
+
+### Tar Source
+
+Download from a tarball:
+
+```toml
+[source]
+tar = "https://www.kernel.org/pub/software/scm/git/git-2.13.1.tar.xz"
+blake3 = "bc78271bffd60c5b8b938d8c08fd74dc2de8d21fbaf8f8e0e3155436d9263f17"
+patches = ["git.patch"]
+script = "./bootstrap.sh"
+```
+
+**Fields:**
+
+<ParamField path="tar" type="string" required>
+  URL to the tarball (supports .tar.gz, .tar.xz, .tar.bz2, .zip)
+</ParamField>
+
+<ParamField path="blake3" type="string">
+  BLAKE3 checksum of the tarball (strongly recommended for reproducibility)
+</ParamField>
+
+<ParamField path="patches" type="array">
+  List of patch files to apply after extraction
+</ParamField>
+
+<ParamField path="script" type="string">
+  Shell script to run after extraction and patching
+</ParamField>
+
+### Path Source
+
+Use a local directory:
+
+```toml
+[source]
+path = "/path/to/source"
+```
+
+<Warning>
+Path sources are primarily for testing. Production recipes should use Git or tar sources.
+</Warning>
+
+### Shared Source
+
+Reuse another package's source:
+
+```toml
+[source]
+same_as = "../main-package"
+```
+
+Useful when building multiple packages from a single source tree.
+
+### No Source
+
+For meta-packages with no source code:
+
+```toml
+# No [source] section
+
+[package]
+dependencies = ["pkg1", "pkg2"]
+```
+
+## Build Section
+
+Defines how to compile the source code.
+
+### Template Field
+
+All build sections must specify a template:
+
+```toml
+[build]
+template = "cargo"  # or "configure", "cmake", "meson", "custom", "none", "remote"
+```
+
+### None Template
+
+No build process (meta-packages):
+
+```toml
+[build]
+template = "none"
+```
+
+### Remote Template
+
+Download pre-built binary package:
+
+```toml
+[build]
+template = "remote"
+```
+
+<Info>
+The build system automatically downloads packages from the official Redox package repository.
+</Info>
+
+### Cargo Template
+
+For Rust projects using Cargo:
+
+```toml
+[build]
+template = "cargo"
+cargopath = "subdir/Cargo.toml"
+cargoflags = [
+    "--features", "redox,extra",
+    "--no-default-features"
+]
+cargopackages = ["pkg1", "pkg2"]
+cargoexamples = ["example1"]
+```
+
+**Fields:**
+
+<ParamField path="cargopath" type="string">
+  Path to Cargo.toml relative to source root (default: "Cargo.toml")
+</ParamField>
+
+<ParamField path="cargoflags" type="array">
+  Additional flags passed to `cargo build`
+</ParamField>
+
+<ParamField path="cargopackages" type="array">
+  Specific packages to build from a workspace
+</ParamField>
+
+<ParamField path="cargoexamples" type="array">
+  Example binaries to build and install
+</ParamField>
+
+**Example from coreutils:**
+
+```toml
+[source]
+git = "https://gitlab.redox-os.org/redox-os/coreutils.git"
+
+[build]
+template = "cargo"
+```
+
+### Configure Template
+
+For autotools-based projects:
+
+```toml
+[build]
+template = "configure"
+configureflags = [
+    "--disable-nls",
+    "--with-ssl",
+    "--enable-static"
+]
+```
+
+**Fields:**
+
+<ParamField path="configureflags" type="array">
+  Flags passed to the `./configure` script
+</ParamField>
+
+The configure template automatically:
+1. Runs `./configure --host=${TARGET} --prefix=/usr ${configureflags}`
+2. Runs `make -j${COOKBOOK_MAKE_JOBS}`
+3. Runs `make DESTDIR=${COOKBOOK_STAGE} install`
+
+### CMake Template
+
+For CMake-based projects:
+
+```toml
+[build]
+template = "cmake"
+cmakeflags = [
+    "-DBUILD_SHARED_LIBS=ON",
+    "-DENABLE_TESTING=OFF"
+]
+```
+
+**Fields:**
+
+<ParamField path="cmakeflags" type="array">
+  Flags passed to the `cmake` command
+</ParamField>
+
+### Meson Template
+
+For Meson build system:
+
+```toml
+[build]
+template = "meson"
+mesonflags = [
+    "-Dtests=disabled",
+    "-Ddocs=false"
+]
+```
+
+**Fields:**
+
+<ParamField path="mesonflags" type="array">
+  Flags passed to the `meson setup` command
+</ParamField>
+
+### Custom Template
+
+For projects requiring custom build logic:
+
+```toml
+[build]
+template = "custom"
+script = """
+# Your custom build script here
+DYNAMIC_INIT
+rsync -av --delete "${COOKBOOK_SOURCE}/" ./
+./configure --host="${TARGET}"
+make -j"${COOKBOOK_MAKE_JOBS}"
+make DESTDIR="${COOKBOOK_STAGE}" install
+"""
+```
+
+**Fields:**
+
+<ParamField path="script" type="string" required>
+  Shell script executed in the build directory
+</ParamField>
+
+**Example from zstd:**
+
+```toml
+[source]
+tar = "https://github.com/facebook/zstd/releases/download/v1.5.7/zstd-1.5.7.tar.gz"
+patches = ["01_redox.patch"]
+
+[build]
+template = "custom"
+script = """
+DYNAMIC_STATIC_INIT
+rsync -av --delete "${COOKBOOK_SOURCE}/" ./
+export CPPFLAGS="$CPPFLAGS -fPIC"
+${COOKBOOK_MAKE}
+${COOKBOOK_MAKE} install DESTDIR="${COOKBOOK_STAGE}" prefix="/usr"
+"""
+```
+
+### Build Dependencies
+
+Libraries and tools required at build time:
+
+```toml
+[build]
+template = "cargo"
+dependencies = [
+    "openssl3",
+    "zlib",
+    "libxml2"
+]
+dev-dependencies = [
+    "pkg-config",
+    "cmake"
+]
+```
+
+**Fields:**
+
+<ParamField path="dependencies" type="array">
+  Runtime libraries and build tools required during compilation
+</ParamField>
+
+<ParamField path="dev-dependencies" type="array">
+  Additional development tools (compilers, build systems, etc.)
+</ParamField>
+
+## Package Section
+
+Metadata about the resulting package.
+
+```toml
+[package]
+dependencies = ["ca-certificates", "libssl"]
+version = "1.2.3"
+description = "A cool package for Redox OS"
+```
+
+**Fields:**
+
+<ParamField path="dependencies" type="array">
+  Packages required at runtime
+</ParamField>
+
+<ParamField path="version" type="string">
+  Package version (auto-detected from source if possible)
+</ParamField>
+
+<ParamField path="description" type="string">
+  Brief description of the package
+</ParamField>
+
+**Example from git:**
+
+```toml
+[source]
+tar = "https://www.kernel.org/pub/software/scm/git/git-2.13.1.tar.xz"
+blake3 = "bc78271bffd60c5b8b938d8c08fd74dc2de8d21fbaf8f8e0e3155436d9263f17"
+patches = ["git.patch"]
+
+[build]
+dependencies = [
+    "curl",
+    "expat",
+    "nghttp2",
+    "openssl3",
+    "zlib"
+]
+template = "custom"
+script = """
+# ... build script ...
+"""
+
+[package]
+dependencies = [
+    "ca-certificates",
+    "nghttp2"
+]
+```
+
+## Optional Packages
+
+Create additional packages from the same source:
+
+```toml
+[[optional-packages]]
+name = "dev"
+dependencies = ["main-package"]
+files = [
+    "/usr/include/**",
+    "/usr/lib/*.a",
+    "/usr/lib/pkgconfig/**"
+]
+
+[[optional-packages]]
+name = "docs"
+dependencies = []
+files = [
+    "/usr/share/doc/**",
+    "/usr/share/man/**"
+]
+```
+
+**Fields:**
+
+<ParamField path="name" type="string" required>
+  Suffix for the package name (creates `package-name-suffix`)
+</ParamField>
+
+<ParamField path="dependencies" type="array">
+  Additional dependencies for this optional package
+</ParamField>
+
+<ParamField path="files" type="array">
+  File patterns to include (supports glob patterns)
+</ParamField>
+
+## Build Script Environment
+
+Available environment variables in custom build scripts:
+
+### Directory Variables
+
+| Variable | Description |
+|----------|-------------|
+| `COOKBOOK_SOURCE` | Extracted source directory |
+| `COOKBOOK_STAGE` | Staging directory for installation (`DESTDIR`) |
+| `COOKBOOK_SYSROOT` | Sysroot with all dependencies |
+| `COOKBOOK_BUILD` | Build directory (usually same as pwd) |
+
+### Tool Variables
+
+| Variable | Description |
+|----------|-------------|
+| `COOKBOOK_CARGO` | Path to cargo |
+| `COOKBOOK_MAKE` | Path to make |
+| `COOKBOOK_MAKE_JOBS` | Number of parallel jobs |
+| `COOKBOOK_CONFIGURE` | Path to configure script |
+
+### Target Variables
+
+| Variable | Description | Example |
+|----------|-------------|----------|
+| `TARGET` | Rust target triple | `x86_64-unknown-redox` |
+| `GNU_TARGET` | GNU-style target | `x86_64-redox` |
+| `ARCH` | Target architecture | `x86_64` |
+
+### Compiler Variables
+
+| Variable | Description |
+|----------|-------------|
+| `CC` | C compiler |
+| `CXX` | C++ compiler |
+| `AR` | Archiver |
+| `RANLIB` | ranlib tool |
+| `STRIP` | Strip tool |
+| `CFLAGS` | C compiler flags |
+| `CXXFLAGS` | C++ compiler flags |
+| `LDFLAGS` | Linker flags |
+| `PKG_CONFIG` | pkg-config tool |
+| `PKG_CONFIG_PATH` | pkg-config search path |
+
+## Helper Functions
+
+The Cookbook provides helper functions in build scripts:
+
+### DYNAMIC_INIT
+
+Initialize for dynamic linking:
+
+```bash
+DYNAMIC_INIT
+# Sets up LDFLAGS and other variables for dynamic linking
+```
+
+### DYNAMIC_STATIC_INIT
+
+Support both static and dynamic linking:
+
+```bash
+DYNAMIC_STATIC_INIT
+# Configures build for static or dynamic based on COOKBOOK_DYNAMIC
+```
+
+### cookbook_cargo
+
+Standard Cargo build and install:
+
+```bash
+cookbook_cargo
+# Equivalent to: cargo build + cargo install to COOKBOOK_STAGE
+```
+
+### cookbook_configure
+
+Standard configure, make, install:
+
+```bash
+cookbook_configure
+# Runs: ./configure, make, make install
+```
+
+### cookbook_meson
+
+Standard Meson build:
+
+```bash
+cookbook_meson -Doption=value
+# Sets up and compiles with Meson
+```
+
+## Complete Examples
+
+### Minimal Rust Package
+
+```toml
+[source]
+git = "https://gitlab.redox-os.org/redox-os/coreutils.git"
+
+[build]
+template = "cargo"
+```
+
+### Library with Dependencies
+
+```toml
+[source]
+tar = "https://www.cairographics.org/releases/cairo-1.18.4.tar.xz"
+blake3 = "b9fa14e02f85ec4e72396c62236c98502d04dbbdf8daf01ab9557a1c7aa7106e"
+patches = ["redox.patch"]
+
+[build]
+dependencies = [
+    "expat",
+    "freetype2",
+    "fontconfig",
+    "pixman",
+    "zlib"
+]
+template = "custom"
+script = """
+DYNAMIC_INIT
+CFLAGS="${CFLAGS} -DCAIRO_NO_MUTEX=1"
+cookbook_meson \
+    -Dxlib-xcb=enabled \
+    -Dtests=disabled
+"""
+```
+
+### Complex Build Script
+
+```toml
+[source]
+git = "https://gitlab.redox-os.org/redox-os/base.git"
+
+[build]
+template = "custom"
+script = """
+mkdir -pv "${COOKBOOK_STAGE}/usr/bin"
+
+# Build multiple packages
+for package in audiod ipcd ptyd; do
+    "${COOKBOOK_CARGO}" build \
+        --manifest-path "${COOKBOOK_SOURCE}/${package}/Cargo.toml" \
+        --release
+    cp -v \
+        "target/${TARGET}/release/${package}" \
+        "${COOKBOOK_STAGE}/usr/bin/${package}"
+done
+"""
+```
+
+### Meta Package
+
+```toml
+[build]
+template = "none"
+
+[package]
+dependencies = [
+    "gcc13",
+    "binutils",
+    "make"
+]
+description = "Build toolchain meta-package"
+```
+
+## Package Naming
+
+### Regular Packages
+
+Package name is the directory name:
+
+```text
+recipes/libs/zlib/recipe.toml → package "zlib"
+```
+
+### Optional Packages
+
+Optional packages append the name:
+
+```toml
+[[optional-packages]]
+name = "dev"
+```
+
+Creates package `zlib-dev`.
+
+### Host Packages
+
+Packages for the host system use `-host` suffix internally:
+
+```text
+make host/package → builds package-host
+```
+
+## Validation
+
+The recipe system validates:
+
+<Check>Well-formed TOML syntax</Check>
+<Check>Required fields present</Check>
+<Check>Valid template names</Check>
+<Check>Dependency packages exist</Check>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Always Use Checksums" icon="fingerprint">
+    Specify `blake3` for all tarball sources to ensure reproducible builds.
+  </Card>
+  
+  <Card title="Pin Git Revisions" icon="anchor">
+    Specify `branch` and `rev` for Git sources to enable reproducible builds.
+  </Card>
+  
+  <Card title="Minimal Dependencies" icon="minimize">
+    Only list dependencies actually required - extras slow down builds.
+  </Card>
+  
+  <Card title="Use Standard Templates" icon="template">
+    Prefer `cargo`, `configure`, `cmake`, or `meson` over `custom` when possible.
+  </Card>
+</CardGroup>
+
+## See Also
+
+- [Application Porting Guide](/reference/porting-applications) - How to port software
+- [Cookbook System](/reference/cookbook) - Build system architecture
+- [Build System Reference](https://doc.redox-os.org/book/build-system-reference.html) - Full build system guide

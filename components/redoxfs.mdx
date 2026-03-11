@@ -1,0 +1,141 @@
+---
+title: RedoxFS
+description: The default filesystem for Redox OS
+---
+
+## Overview
+
+**RedoxFS** is the default filesystem for Redox OS, designed specifically for the operating system's microkernel architecture. It's written in Rust and provides reliable, copy-on-write storage with modern filesystem features.
+
+<Card title="RedoxFS Repository" icon="code" href="https://gitlab.redox-os.org/redox-os/redoxfs">
+  View the RedoxFS source code on GitLab
+</Card>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Copy-on-Write" icon="copy">
+    Efficient copy-on-write operations for data integrity
+  </Card>
+  <Card title="Rust Implementation" icon="shield">
+    Memory-safe implementation preventing corruption
+  </Card>
+  <Card title="Snapshots" icon="camera">
+    Support for filesystem snapshots
+  </Card>
+  <Card title="POSIX Compatible" icon="check">
+    Compatible with POSIX filesystem semantics
+  </Card>
+</CardGroup>
+
+## Architecture
+
+RedoxFS is designed to work seamlessly with Redox's scheme-based I/O system:
+
+- **Scheme integration**: Accessed through the `file://` scheme
+- **Userspace daemon**: Runs as a userspace process for better isolation
+- **Block device support**: Works with various storage backends
+- **Journaling**: Ensures data consistency across crashes
+
+## File Scheme Access
+
+In Redox OS, filesystem access is handled through the scheme system:
+
+```rust
+// Files are accessed through the file scheme
+let file = File::open("file:///home/user/document.txt")?;
+
+// Or using standard POSIX paths (automatically resolved)
+let file = File::open("/home/user/document.txt")?;
+```
+
+## Filesystem Structure
+
+RedoxFS follows a standard Unix-like directory hierarchy:
+
+```bash
+/
+├── bin -> usr/bin      # User binaries (symlink)
+├── dev/                # Device files
+├── etc/                # Configuration files
+├── home/               # User home directories
+├── lib -> usr/lib      # Libraries (symlink)
+├── tmp/                # Temporary files
+├── usr/                # User programs and data
+│   ├── bin/           # User binaries
+│   ├── lib/           # Libraries
+│   └── share/         # Shared data
+└── var/                # Variable data
+    ├── cache/
+    ├── log/
+    └── tmp/
+```
+
+## Configuration
+
+RedoxFS is included in the base system configuration:
+
+```toml
+[packages]
+redoxfs = {}
+```
+
+## File Scheme Access Control
+
+The filesystem integrates with Redox's security model through scheme permissions:
+
+```toml
+[user_schemes.user]
+schemes = [
+  "file",  # Access to filesystem
+  # ... other schemes
+]
+```
+
+<Warning>
+  Root access is required for system-level filesystem operations. Regular users have restricted access based on file permissions.
+</Warning>
+
+## Device Files
+
+RedoxFS works with device files that are mapped to kernel and userspace schemes:
+
+```bash
+# Device file symlinks to schemes
+/dev/null -> /scheme/null
+/dev/random -> /scheme/rand
+/dev/urandom -> /scheme/rand
+/dev/zero -> /scheme/zero
+```
+
+## Performance
+
+RedoxFS is optimized for:
+
+- **Fast metadata operations**: Efficient directory traversal
+- **Low latency**: Minimal overhead for small operations
+- **Scalability**: Handles large filesystems efficiently
+- **Concurrent access**: Safe multi-threaded access
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="RedoxFS Repository" icon="gitlab" href="https://gitlab.redox-os.org/redox-os/redoxfs">
+    Source code and development
+  </Card>
+  <Card title="Redox Book" icon="book" href="https://doc.redox-os.org/book/">
+    Filesystem documentation
+  </Card>
+  <Card title="Build System" icon="hammer" href="https://doc.redox-os.org/book/build-system-reference.html">
+    How RedoxFS is built
+  </Card>
+  <Card title="Hardware Support" icon="server" href="https://doc.redox-os.org/book/hardware-support.html">
+    Storage device compatibility
+  </Card>
+</CardGroup>
+
+## Maintainer
+
+<Card title="Jeremy Soller (@jackpot51)" icon="user">
+  Primary maintainer of RedoxFS
+</Card>

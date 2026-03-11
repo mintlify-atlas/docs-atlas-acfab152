@@ -1,0 +1,227 @@
+---
+title: System Requirements
+description: Minimum and recommended system requirements for running Redox OS
+---
+
+Redox OS can run on a variety of hardware configurations. This page outlines the system requirements for different architectures and use cases.
+
+## Minimum Requirements
+
+<CardGroup cols={2}>
+  <Card title="x86-64 / i686" icon="microchip">
+    **Processor:** Pentium II or newer (i586 for 32-bit, x86-64 for 64-bit)
+    
+    **Memory:** 1 GB RAM (2 GB recommended)
+    
+    **Storage:** 1 GB available space
+    
+    **Firmware:** BIOS or UEFI
+  </Card>
+  
+  <Card title="ARM64" icon="cpu">
+    **Processor:** ARMv8-A or newer
+    
+    **Memory:** 1 GB RAM (2 GB recommended)
+    
+    **Storage:** 1 GB available space
+    
+    **Firmware:** U-Boot or UEFI
+  </Card>
+</CardGroup>
+
+## Recommended Specifications
+
+For the best experience running Redox OS with Orbital desktop environment:
+
+<Tabs>
+  <Tab title="Desktop">
+    - **Processor:** Dual-core x86-64 CPU (Core 2 Duo or equivalent)
+    - **Memory:** 2-4 GB RAM
+    - **Storage:** 2 GB available space
+    - **Graphics:** BIOS VESA or UEFI GOP compatible (Intel integrated graphics recommended)
+    - **Network:** Ethernet adapter (Intel e1000 compatible)
+    - **Input:** PS/2 or USB keyboard and mouse
+  </Tab>
+  
+  <Tab title="Server">
+    - **Processor:** Single or multi-core x86-64 CPU
+    - **Memory:** 1-2 GB RAM
+    - **Storage:** 1 GB available space
+    - **Network:** Ethernet adapter (Intel e1000 compatible)
+    - **Serial:** UART console (optional, for headless operation)
+  </Tab>
+</Tabs>
+
+## Architecture Support
+
+Redox OS supports multiple CPU architectures with varying levels of maturity:
+
+| Architecture | Status | Notes |
+|--------------|--------|-------|
+| **x86-64** | Stable | Primary development platform, full feature support |
+| **i686** | Stable | 32-bit x86, some memory mapping limitations |
+| **ARM64** | Experimental | Limited hardware support, UART console working |
+| **RISC-V 64** | Experimental | Early development stage |
+
+## Firmware Requirements
+
+<AccordionGroup>
+  <Accordion title="BIOS (Legacy)">
+    - Supports i686 and x86-64 architectures
+    - Uses VESA graphics for display
+    - May have video mode limitations on some hardware
+    - PS/2 keyboard and mouse support
+  </Accordion>
+  
+  <Accordion title="UEFI">
+    - Supports x86-64 and ARM64 architectures
+    - Uses GOP (Graphics Output Protocol) for display
+    - Better hardware compatibility
+    - Recommended for modern systems
+  </Accordion>
+  
+  <Accordion title="U-Boot">
+    - Supports ARM64 architecture
+    - Used for embedded devices like Raspberry Pi
+    - UART serial console support
+  </Accordion>
+</AccordionGroup>
+
+## Virtual Machine Requirements
+
+### QEMU
+
+<Info>
+QEMU is the recommended virtualization platform for testing Redox OS.
+</Info>
+
+**Minimum QEMU configuration:**
+- **i586:** 1 CPU core, 1024 MB RAM
+- **x86-64:** 4 CPU cores, 2048 MB RAM
+- **ARM64:** 1-4 CPU cores, 2048 MB RAM
+- **RISC-V 64:** 4 CPU cores, 2048 MB RAM
+
+**Recommended QEMU options:**
+- KVM acceleration (on Linux with matching host/guest architecture)
+- HVF acceleration (on macOS with matching host/guest architecture)
+- VirtIO or NVMe storage for better performance
+- Intel HDA audio (or AC'97 for i586)
+- e1000 network adapter
+
+### VirtualBox
+
+**VirtualBox configuration:**
+- **Memory:** 2048 MB RAM
+- **Video Memory:** 32 MB VRAM
+- **Storage:** SATA controller (Intel AHCI)
+- **Network:** Intel PRO/1000 MT Desktop (82540EM)
+- **Audio:** Intel HD Audio
+- **Input:** PS/2 keyboard and mouse
+
+<Warning>
+USB support in VirtualBox should be disabled for better compatibility.
+</Warning>
+
+## Storage Requirements
+
+### Disk Types
+
+Redox supports several storage interfaces:
+
+- **NVMe** - Default for modern systems (recommended)
+- **AHCI/SATA** - Good compatibility for most systems
+- **IDE** - Legacy support for older hardware (i686)
+- **VirtIO** - Optimized for virtual machines
+- **USB Storage** - Supported but may have compatibility issues
+- **SD Card** - Supported for ARM devices
+
+### Filesystem
+
+Redox uses RedoxFS as its default filesystem, which requires:
+- Minimum 256 MB partition
+- Recommended 1 GB or more for desktop installations
+
+## Network Requirements
+
+<Card title="Supported Network Adapters" icon="network-wired">
+  - Intel e1000 (most compatible)
+  - Realtek RTL8139
+  - VirtIO-net (virtual machines)
+  - USB network adapters (experimental)
+</Card>
+
+<Warning>
+**Not Supported:**
+- Wi-Fi adapters
+- Bluetooth
+</Warning>
+
+## Graphics Requirements
+
+### Supported Graphics
+
+- **BIOS VESA** - Standard VGA (640x480 to 1920x1080)
+- **UEFI GOP** - Graphics Output Protocol (various resolutions)
+- **VirtIO GPU** - Virtual machine graphics (recommended for VMs)
+
+### Unsupported Graphics
+
+<Warning>
+The following GPU types are not yet supported:
+- AMD Radeon GPUs
+- NVIDIA GeForce GPUs
+- ARM Mali GPUs
+- PowerVR GPUs
+</Warning>
+
+Redox currently relies on firmware-provided graphics modes (VESA/GOP) rather than native GPU drivers.
+
+## Input Device Requirements
+
+### Supported Input Devices
+
+<Tabs>
+  <Tab title="Keyboard">
+    - PS/2 keyboards (full support)
+    - USB keyboards (varying compatibility)
+    - Standard layouts recommended
+  </Tab>
+  
+  <Tab title="Mouse">
+    - PS/2 mice (full support)
+    - USB mice (varying compatibility)
+    - Standard HID-compliant devices
+  </Tab>
+  
+  <Tab title="Not Supported">
+    - I2C touchpads (most laptop trackpads)
+    - Touchscreens
+    - Gaming controllers
+  </Tab>
+</Tabs>
+
+<Info>
+For best compatibility, use PS/2 input devices or standard USB HID devices.
+</Info>
+
+## Hardware Limitations
+
+Be aware of these current limitations when selecting hardware:
+
+<Warning>
+- **ACPI support is incomplete** - Some systems may not boot properly
+- **USB support varies** - Not all USB devices are recognized
+- **No I2C support** - Laptop trackpads typically won't work
+- **Limited audio support** - Intel HDA and AC'97 only
+- **No Wi-Fi or Bluetooth**
+- **No discrete GPU support**
+</Warning>
+
+## Checking Your Hardware
+
+Before installing Redox, check the [Hardware Compatibility](/hardware/compatibility) page to see if your specific device has been tested.
+
+You can also:
+1. Try running Redox in a virtual machine first
+2. Boot the live ISO to test without installing
+3. Check the [community hardware database](https://gitlab.redox-os.org/redox-os/base/-/blob/main/drivers/COMMUNITY-HW.md) for similar devices

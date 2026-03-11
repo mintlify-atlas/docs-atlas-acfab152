@@ -1,0 +1,643 @@
+---
+title: Installation Guide
+description: Complete installation instructions for building Redox OS with Podman or native toolchains
+---
+
+This guide provides comprehensive installation instructions for setting up the Redox OS build environment on various platforms.
+
+## System Requirements
+
+<CardGroup cols={2}>
+  <Card title="Disk Space" icon="hard-drive">
+    At least 10-20 GB free for build artifacts
+  </Card>
+  <Card title="RAM" icon="memory">
+    Minimum 4 GB, 8 GB+ recommended
+  </Card>
+  <Card title="CPU" icon="microchip">
+    Multi-core processor recommended for faster builds
+  </Card>
+  <Card title="Network" icon="wifi">
+    Stable internet for downloading sources
+  </Card>
+</CardGroup>
+
+## Supported Platforms
+
+Redox can be built on:
+
+- **Linux**: Arch, Ubuntu, Debian, Fedora, openSUSE, Gentoo, Solus
+- **BSD**: FreeBSD, macOS (Homebrew or MacPorts)
+- **Experimental**: Redox OS itself (bootstrapping)
+
+<Warning>
+  **macOS Users**: Native builds require kernel extensions (FUSE). The Podman build method is **strongly recommended** for macOS.
+</Warning>
+
+## Installation Methods
+
+<Tabs>
+  <Tab title="Podman Build (Recommended)">
+    
+## Podman Build Installation
+
+The Podman build method uses containers for an isolated, consistent build environment.
+
+### Step 1: Download Bootstrap Script
+
+```bash
+curl -sf https://gitlab.redox-os.org/redox-os/redox/raw/master/podman_bootstrap.sh -o podman_bootstrap.sh
+```
+
+### Step 2: Run Bootstrap
+
+The bootstrap script automatically detects your OS and installs dependencies:
+
+<CodeGroup>
+  ```bash Standard Installation
+  time bash -e podman_bootstrap.sh
+  ```
+  
+  ```bash Specify Emulator
+  bash -e podman_bootstrap.sh -e qemu
+  ```
+  
+  ```bash Help
+  bash -e podman_bootstrap.sh -h
+  ```
+</CodeGroup>
+
+### What Gets Installed
+
+The Podman bootstrap installs:
+
+<AccordionGroup>
+  <Accordion title="Core Dependencies" icon="box">
+    - **Podman**: Container runtime
+    - **git**: Version control
+    - **make/gmake**: Build system
+    - **curl**: Download tool
+    - **gdb/gdb-multiarch**: Debugger
+    - **Rustup**: Rust toolchain manager (stable)
+  </Accordion>
+  
+  <Accordion title="FUSE Support" icon="link">
+    - **fuse3/libfuse3-dev**: File system in userspace
+    - **fuse-overlayfs**: Overlay filesystem
+    - **slirp4netns**: User-mode networking
+  </Accordion>
+  
+  <Accordion title="Emulator (QEMU)" icon="desktop">
+    - **qemu-system-x86**: x86/x86_64 emulation
+    - **qemu-system-arm**: ARM emulation
+    - **qemu-system-riscv**: RISC-V emulation
+    - **qemu-kvm**: Kernel-based virtualization
+    - **edk2-aarch64**: ARM64 UEFI firmware (on Fedora/Ubuntu)
+  </Accordion>
+  
+  <Accordion title="Platform-Specific Packages" icon="linux">
+    **Arch Linux**: `fuse3`, `fuse-overlayfs`, `slirp4netns`
+    
+    **Ubuntu/Debian**: `pkg-config`, `fuse3`, `libfuse3-dev`
+    
+    **Fedora**: `fuse3`, `fuse3-devel`
+    
+    **SUSE**: `fuse`, `fuse-overlayfs`
+  </Accordion>
+</AccordionGroup>
+
+### Step 3: Configuration
+
+After bootstrap completes, navigate to the repository:
+
+```bash
+cd redox
+```
+
+The `.config` file is created automatically with:
+
+```bash
+PODMAN_BUILD?=1
+```
+
+On Apple Silicon (M1/M2/M3):
+
+```bash
+PODMAN_BUILD?=1
+ARCH=aarch64
+```
+
+<Tip>
+  **Speed up builds** with binary packages:
+  
+  ```bash
+  echo REPO_BINARY=1 >> .config
+  ```
+</Tip>
+
+### Step 4: Build and Run
+
+<Steps>
+  <Step title="Build System Image">
+    ```bash
+    make all
+    ```
+    
+    Or without SELinux:
+    ```bash
+    make all USE_SELINUX=0
+    ```
+  </Step>
+  
+  <Step title="Launch in QEMU">
+    ```bash
+    make qemu
+    ```
+  </Step>
+</Steps>
+
+  </Tab>
+  
+  <Tab title="Native Build">
+    
+## Native Build Installation
+
+Native builds compile directly on your host system with full toolchain installation.
+
+### Step 1: Download Bootstrap Script
+
+```bash
+curl -sf https://gitlab.redox-os.org/redox-os/redox/raw/master/native_bootstrap.sh -o native_bootstrap.sh
+```
+
+### Step 2: Bootstrap Options
+
+<CodeGroup>
+  ```bash Interactive
+  bash -e native_bootstrap.sh -e qemu
+  ```
+  
+  ```bash Non-Interactive
+  bash -e native_bootstrap.sh -e qemu -y
+  ```
+  
+  ```bash Dependencies Only
+  bash -e native_bootstrap.sh -e qemu -d
+  ```
+  
+  ```bash Update Existing Install
+  bash -e native_bootstrap.sh -u
+  ```
+</CodeGroup>
+
+#### Bootstrap Flags
+
+- `-e [emulator]`: Install `qemu` or `virtualbox`
+- `-y`: Non-interactive mode (auto-accept)
+- `-d`: Install dependencies only, skip repo clone
+- `-u [branch]`: Update existing repo (defaults to master)
+- `-p [manager]`: Choose package manager (Ubuntu: `apt-fast`, `aptitude`)
+- `-h`: Show help
+
+### What Gets Installed
+
+Native builds require extensive development tools:
+
+<AccordionGroup>
+  <Accordion title="Build Essentials" icon="hammer">
+    - **Rust toolchain**: rustc, cargo, rustup
+    - **GNU tools**: make, autoconf, automake, libtool
+    - **Compilers**: gcc, g++, clang, nasm
+    - **Build systems**: cmake, meson, ninja, scons
+    - **Utilities**: git, curl, wget, rsync, patch, m4, bison, flex
+  </Accordion>
+  
+  <Accordion title="Libraries & Development Files" icon="book">
+    - **FUSE**: fuse3, fuse3-dev/devel
+    - **Graphics**: libjpeg-dev, libpng-dev, libgdk-pixbuf2.0
+    - **SDL**: libsdl1.2-dev, libsdl2-ttf-dev
+    - **Crypto**: openssl, libgmp-dev
+    - **Other**: expat, protobuf-compiler, pkg-config
+  </Accordion>
+  
+  <Accordion title="Documentation & Internationalization" icon="globe">
+    - **Docs**: doxygen, texinfo, help2man, gtk-doc-tools
+    - **i18n**: gettext, intltool, po4a, autopoint
+    - **Perl modules**: libhtml-parser-perl, libparse-yapp-perl
+  </Accordion>
+  
+  <Accordion title="System Tools" icon="wrench">
+    - **Debug**: gdb-multiarch (Linux), gdb +multiarch (macOS)
+    - **Packaging**: patchelf, syslinux-utils, genisoimage
+    - **Fonts**: xfonts-utils
+    - **Python**: python3, python3-dev, python3-mako, python3-venv
+  </Accordion>
+  
+  <Accordion title="Cargo Tools" icon="rust">
+    Installed via cargo:
+    
+    ```bash
+    cargo install just --version 1.42.4
+    cargo install cbindgen --version 0.29.0
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Platform-Specific Instructions
+
+<AccordionGroup>
+  <Accordion title="Ubuntu / Debian" icon="ubuntu">
+    Uses `apt-get` by default. The bootstrap installs 60+ packages including:
+    
+    ```bash
+    sudo apt-get update
+    sudo apt-get install build-essential git curl fuse3 libfuse3-dev \
+      gdb-multiarch qemu-system-x86 qemu-kvm cmake nasm pkg-config \
+      autoconf automake libtool m4 python3-mako libgmp-dev ...
+    ```
+    
+    <Note>
+      On Debian, VirtualBox requires manual installation. See [Debian VirtualBox Wiki](https://wiki.debian.org/VirtualBox).
+    </Note>
+  </Accordion>
+  
+  <Accordion title="Fedora" icon="fedora">
+    Uses `dnf`. Installs development groups and individual packages:
+    
+    ```bash
+    sudo dnf install @development-tools git-all cmake nasm gcc gcc-c++ \
+      fuse3-devel qemu-system-x86 qemu-kvm edk2-aarch64 ...
+    ```
+  </Accordion>
+  
+  <Accordion title="Arch Linux" icon="linux">
+    Uses `pacman`:
+    
+    ```bash
+    sudo pacman -S --needed git make curl fuse cmake nasm \
+      qemu-system-x86 qemu-system-arm qemu-system-riscv ...
+    ```
+  </Accordion>
+  
+  <Accordion title="macOS (Homebrew)" icon="apple">
+    ```bash
+    brew update
+    brew install git make curl cmake nasm qemu gdb \
+      redox-os/gcc_cross_compilers/x86_64-elf-gcc ...
+    ```
+    
+    <Warning>
+      macOS builds require `macfuse` (kernel extension). Consider using Podman instead.
+    </Warning>
+  </Accordion>
+  
+  <Accordion title="macOS (MacPorts)" icon="apple">
+    ```bash
+    sudo port -v selfupdate
+    sudo port install git gmake curl cmake qemu nasm \
+      'gdb +multiarch' x86_64-elf-gcc ...
+    ```
+  </Accordion>
+  
+  <Accordion title="FreeBSD" icon="freebsd">
+    ```bash
+    sudo pkg install git gmake curl cmake nasm qemu \
+      fusefs-libs3 gcc gdb ...
+    ```
+  </Accordion>
+  
+  <Accordion title="openSUSE" icon="opensuse">
+    Uses `zypper`:
+    
+    ```bash
+    sudo zypper install git make curl cmake nasm fuse-devel \
+      gcc gcc-c++ qemu-x86 qemu-kvm ...
+    ```
+  </Accordion>
+  
+  <Accordion title="Gentoo" icon="gentoo">
+    Uses `emerge`:
+    
+    ```bash
+    sudo emerge dev-vcs/git sys-fs/fuse dev-util/cmake \
+      dev-lang/nasm app-emulation/qemu ...
+    ```
+    
+    <Note>
+      QEMU requires manual configuration: Add `QEMU_SOFTMMU_TARGETS="x86_64"` to `/etc/portage/make.conf`
+    </Note>
+  </Accordion>
+  
+  <Accordion title="Solus" icon="linux">
+    Uses `eopkg`:
+    
+    ```bash
+    sudo eopkg it git make cmake nasm fuse-devel qemu \
+      gcc g++ autoconf automake ...
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Step 3: Rust Installation
+
+The bootstrap script handles Rustup installation:
+
+```bash
+curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable
+```
+
+Update your shell environment:
+
+```bash
+source $HOME/.cargo/env
+```
+
+Add to your shell profile permanently:
+
+```bash
+echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc
+```
+
+### Step 4: Clone and Configure
+
+The bootstrap clones the repository:
+
+```bash
+git clone https://gitlab.redox-os.org/redox-os/redox.git --origin upstream
+cd redox
+```
+
+Creates `.config`:
+
+```bash
+PODMAN_BUILD?=0
+```
+
+### Step 5: Build
+
+```bash
+make all
+```
+
+On FreeBSD, load FUSE kernel module first:
+
+```bash
+kldload fuse.ko
+make all
+```
+
+  </Tab>
+</Tabs>
+
+## Build System Architecture Selection
+
+Use `build.sh` for architecture-specific builds:
+
+```bash
+# x86_64 (default)
+./build.sh -X -c desktop qemu
+
+# ARM64 / aarch64  
+./build.sh -A -c desktop qemu
+
+# i586 (32-bit x86)
+./build.sh -5 -c desktop qemu
+
+# RISC-V 64-bit
+./build.sh -R -c desktop qemu
+```
+
+### Configuration Profiles
+
+- **desktop**: Full desktop environment with COSMIC apps
+- **server**: Server configuration, minimal GUI
+- **demo**: Demonstration configuration
+
+Custom configs are in `config/<ARCH>/<CONFIG>.toml`
+
+## Makefile Targets Reference
+
+```bash
+make all              # Build harddrive.img
+make live             # Build bootable ISO (redox-live.iso)
+make popsicle         # Create bootable USB with Popsicle
+make image            # Clean and rebuild images
+make rebuild          # Full rebuild (removes repo.tag)
+make clean            # Remove build artifacts
+make distclean        # Clean including fetched sources
+make pull             # Update repository
+make repo             # Build repository tag
+make env              # Enter build environment shell
+make qemu             # Run in QEMU
+make virtualbox       # Run in VirtualBox
+make gdb              # Debug kernel with GDB
+make wireshark        # Analyze network capture
+```
+
+## Configuration Variables
+
+Edit `.config` or set as environment variables:
+
+```bash
+# Build method
+PODMAN_BUILD?=1        # Use Podman (1) or native (0)
+
+# Binary packages for faster builds
+REPO_BINARY=1
+
+# SELinux support (Fedora/RHEL)
+USE_SELINUX=1          # Set to 0 if not using SELinux
+
+# Architecture (auto-detected or override)
+ARCH=x86_64            # x86_64, aarch64, i586, riscv64gc
+
+# Configuration name
+CONFIG_NAME=desktop    # desktop, server, demo, or custom
+
+# Filesystem configuration
+FILESYSTEM_CONFIG=config/x86_64/desktop.toml
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="SELinux Errors" icon="shield">
+    If you encounter build errors on non-SELinux systems:
+    
+    ```bash
+    make all USE_SELINUX=0
+    ```
+    
+    Or add to `.config`:
+    ```bash
+    echo 'USE_SELINUX?=0' >> .config
+    ```
+  </Accordion>
+  
+  <Accordion title="Rustup Installation Issues" icon="rust">
+    Manual Rustup installation:
+    
+    ```bash
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+    rustup default stable
+    ```
+  </Accordion>
+  
+  <Accordion title="FUSE Errors" icon="link">
+    **Linux**: Ensure FUSE 3 is installed
+    ```bash
+    # Ubuntu/Debian
+    sudo apt install fuse3 libfuse3-dev
+    
+    # Fedora
+    sudo dnf install fuse3 fuse3-devel
+    ```
+    
+    **FreeBSD**: Load kernel module
+    ```bash
+    sudo kldload fuse
+    ```
+  </Accordion>
+  
+  <Accordion title="Podman Permissions" icon="lock">
+    Add user to Podman group (Linux):
+    ```bash
+    sudo usermod -aG podman $USER
+    # Log out and back in
+    ```
+  </Accordion>
+  
+  <Accordion title="Disk Space Issues" icon="hard-drive">
+    Clean build artifacts:
+    ```bash
+    make clean
+    ```
+    
+    Remove all downloaded sources:
+    ```bash
+    make distclean
+    ```
+  </Accordion>
+  
+  <Accordion title="macOS Build Warnings" icon="triangle-exclamation">
+    Native macOS builds are **not recommended**. The toolchain requires FUSE kernel extensions.
+    
+    **Solution**: Use Podman build instead:
+    ```bash
+    bash podman_bootstrap.sh -e qemu
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Development Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Keep Build System Updated" icon="arrows-rotate">
+    ```bash
+    cd redox
+    git pull upstream master
+    ```
+  </Card>
+  
+  <Card title="Log Build Errors" icon="file-lines">
+    ```bash
+    make all 2>&1 | tee build.log
+    ```
+  </Card>
+  
+  <Card title="Local Recipe Changes" icon="code">
+    Disable auto-updates for modified recipes:
+    
+    See [Configuration Settings](https://doc.redox-os.org/book/configuration-settings.html)
+  </Card>
+  
+  <Card title="Update initfs" icon="floppy-disk">
+    After modifying drivers or system components:
+    
+    See [Coding and Building](https://doc.redox-os.org/book/coding-and-building.html)
+  </Card>
+</CardGroup>
+
+## Debugging the Build
+
+### GDB Integration
+
+Debug the kernel:
+
+```bash
+make qemu &  # Start QEMU with GDB stub
+make gdb     # Connect debugger
+```
+
+The debugger connects to `localhost:1234` and loads symbols from:
+```
+recipes/core/kernel/target/<TARGET>/build/kernel.sym
+```
+
+<Warning>
+  Set `RUST_GDB=gdb-multiarch` when debugging for architectures different from your host.
+</Warning>
+
+### Network Analysis
+
+Capture and analyze network traffic:
+
+```bash
+make qemu  # QEMU creates network.pcap
+make wireshark
+```
+
+## Advanced Configuration
+
+### Custom Filesystem Config
+
+Create custom TOML configuration:
+
+```bash
+cp config/x86_64/desktop.toml config/x86_64/myconfig.toml
+# Edit myconfig.toml
+./build.sh -X -f config/x86_64/myconfig.toml all
+```
+
+### Environment Shell
+
+Enter build environment with correct PATH:
+
+```bash
+make env
+```
+
+This spawns a shell with:
+- Cross-compiler tools in PATH
+- All build dependencies accessible
+- Environment variables configured
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Fast-track guide to building Redox
+  </Card>
+  <Card title="Contributing" icon="code-pull-request" href="https://gitlab.redox-os.org/redox-os/redox/-/blob/master/CONTRIBUTING.md">
+    Contribute to Redox development
+  </Card>
+  <Card title="Build System Reference" icon="book" href="https://doc.redox-os.org/book/build-system-reference.html">
+    Detailed build system documentation
+  </Card>
+  <Card title="Developer FAQ" icon="circle-question" href="https://doc.redox-os.org/book/developer-faq.html">
+    Common development questions
+  </Card>
+</CardGroup>
+
+## Getting Support
+
+If you encounter issues:
+
+1. **Check logs**: Always save build output with `2>&1 | tee log.txt`
+2. **Search issues**: [GitLab Issues](https://gitlab.redox-os.org/redox-os/redox/-/issues)
+3. **Ask on chat**: [Matrix](https://matrix.to/#/#redox-join:matrix.org) or [Discord](https://discord.gg/JfggvrHGDY)
+4. **Read docs**: [Redox Book](https://doc.redox-os.org/book/)
+
+<Tip>
+  Post issue links in the Dev or Support chat rooms to avoid them being forgotten due to email notification noise.
+</Tip>

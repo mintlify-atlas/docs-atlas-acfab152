@@ -1,0 +1,628 @@
+---
+title: Testing Guide
+description: Testing procedures and CI configuration for Redox OS
+---
+
+This guide covers testing procedures for Redox OS, including running tests locally, CI configuration, and automated testing.
+
+## Continuous Integration
+
+Redox uses GitLab CI for automated testing on all merge requests targeting the `master` branch.
+
+### CI Pipeline Stages
+
+<Steps>
+  <Step title="Lint Stage">
+    The lint stage ensures code quality and style compliance.
+    
+    <Tabs>
+      <Tab title="rustfmt">
+        Checks Rust code formatting:
+        
+        ```yaml
+        fmt:
+          image: "rust:trixie"
+          stage: lint
+          script:
+            - rustup component add rustfmt
+            - cargo fmt -- --check
+        ```
+        
+        Run locally:
+        ```bash
+        rustup component add rustfmt
+        cargo fmt -- --check
+        ```
+      </Tab>
+      
+      <Tab title="cargo-test">
+        Runs unit tests:
+        
+        ```yaml
+        cargo-test:
+          image: "rust:trixie"
+          stage: lint
+          script:
+            - cargo test --locked
+        ```
+        
+        Run locally:
+        ```bash
+        cargo test --locked
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+  
+  <Step title="Test Stage">
+    The test stage builds images and validates packaging.
+    
+    <Tabs>
+      <Tab title="Image Build">
+        Builds system images:
+        
+        ```yaml
+        img:
+          image: "redoxos/redox-base"
+          stage: test
+          script:
+            - |
+              export PATH="$HOME/.cargo/bin:$PATH" &&
+              (curl "https://sh.rustup.rs" -sSf | sh -s -- -y --default-toolchain stable --profile minimal ) &&
+              cargo install cbindgen &&
+              PODMAN_BUILD=0 SKIP_CHECK_TOOLS=1 REPO_BINARY=1 FSTOOLS_NO_MOUNT=1 COOKBOOK_VERBOSE=false make ci-img IMG_TAG=$CI_COMMIT_REF_NAME
+        ```
+        
+        Run locally:
+        ```bash
+        make ci-img IMG_TAG=local-test
+        ```
+      </Tab>
+      
+      <Tab title="Package Validation">
+        Tests packaging for all supported architectures:
+        
+        ```yaml
+        pkg:
+          image: "rust:trixie"
+          stage: test
+          script:
+            - |
+              export PATH="$HOME/.cargo/bin:$PATH" PODMAN_BUILD=0 &&
+              make CONFIG_NAME=ci SKIP_CHECK_TOOLS=1 repo-tree ARCH=x86_64 &&
+              make CONFIG_NAME=ci SKIP_CHECK_TOOLS=1 repo-tree ARCH=i586 &&
+              make CONFIG_NAME=ci SKIP_CHECK_TOOLS=1 repo-tree ARCH=aarch64 &&
+              make CONFIG_NAME=ci SKIP_CHECK_TOOLS=1 repo-tree ARCH=riscv64gc
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+</Steps>
+
+### CI Workflow Rules
+
+The CI pipeline runs automatically when:
+
+```yaml
+workflow:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master" && $CI_PROJECT_NAMESPACE == "redox-os"'
+    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master"'
+```
+
+- Commits to `master` branch in the `redox-os` namespace
+- Merge requests targeting `master`
+
+## Local Testing
+
+### Pre-commit Testing
+
+Before creating a merge request, run these tests locally:
+
+<Steps>
+  <Step title="Format check">
+    ```bash
+    cargo fmt -- --check
+    ```
+    
+    Auto-fix formatting:
+    ```bash
+    cargo fmt
+    ```
+  </Step>
+  
+  <Step title="Run unit tests">
+    ```bash
+    cargo test --locked
+    ```
+  </Step>
+  
+  <Step title="Build test">
+    ```bash
+    make all
+    ```
+  </Step>
+  
+  <Step title="QEMU test run">
+    ```bash
+    make qemu
+    ```
+    
+    Verify the system boots and basic functionality works.
+  </Step>
+</Steps>
+
+### Configuration-based Testing
+
+Redox provides several test configurations:
+
+<Tabs>
+  <Tab title="tests.toml">
+    Standard testing configuration:
+    
+    ```toml
+    # Configuration for testing
+    include = ["server.toml"]
+    
+    [general]
+    filesystem_size = 10000  # MiB
+    prompt = false           # Non-interactive
+    
+    [packages]
+    redox-tests = {}
+    benchmarks = {}
+    ```
+    
+    Build and test:
+    ```bash
+    make all CONFIG_NAME=tests
+    make qemu CONFIG_NAME=tests
+    ```
+  </Tab>
+  
+  <Tab title="os-test.toml">
+    OS-level testing configuration:
+    
+    ```bash
+    # Build and run OS tests
+    make CONFIG_NAME=os-test unmount
+    rm -f "build/$(ARCH)/os-test/harddrive.img"
+    make CONFIG_NAME=os-test qemu gpu=no
+    ```
+    
+    Extract test results:
+    ```bash
+    make CONFIG_NAME=os-test mount
+    cp -rv build/$(ARCH)/os-test/filesystem/usr/share/os-test/html ./
+    cp -v build/$(ARCH)/os-test/filesystem/usr/share/os-test/os-test.json ./
+    make CONFIG_NAME=os-test unmount
+    ```
+  </Tab>
+  
+  <Tab title="auto-test.toml">
+    Automated test configuration for CI:
+    
+    ```bash
+    make CONFIG_NAME=auto-test all
+    make CONFIG_NAME=auto-test qemu
+    ```
+  </Tab>
+</Tabs>
+
+## CI Image Building
+
+The CI system builds standard images for all architectures:
+
+### Build CI Images
+
+```bash
+make ci-img IMG_TAG=v0.8.0
+```
+
+This builds three configurations:
+- `server` - Server configuration
+- `desktop` - Desktop configuration  
+- `demo` - Demo configuration
+
+<Info>
+Images are created in `build/img/$(ARCH)/` with the naming format:
+- `redox_<config>_<tag>_harddrive.img.zst`
+- `redox_<config>_<tag>_livedisk.iso.zst`
+
+A `SHA256SUM` file is also generated for verification.
+</Info>
+
+### Customize Image Naming
+
+```bash
+# Change the separator
+make ci-img IMG_TAG=v0.8.0 IMG_SEPARATOR=-
+
+# Omit the tag
+make ci-img IMG_TAG= IMG_SEPARATOR=
+
+# Change output directory
+make ci-img IMG_DIR=custom/output/path
+```
+
+### Individual Configuration Builds
+
+```bash
+# Build just server configuration
+make server
+
+# Build desktop configuration
+make desktop
+
+# Build demo configuration
+make demo
+```
+
+These targets match the filesystem config file names and create images in the IMG_DIR.
+
+## OS Testing
+
+Run comprehensive OS-level tests:
+
+```bash
+make ci-os-test
+```
+
+<Steps>
+  <Step title="Clean previous test">
+    ```bash
+    make CONFIG_NAME=os-test unmount
+    rm -f "build/$(ARCH)/os-test/harddrive.img"
+    ```
+  </Step>
+  
+  <Step title="Run tests in QEMU">
+    ```bash
+    make CONFIG_NAME=os-test qemu gpu=no
+    ```
+  </Step>
+  
+  <Step title="Extract test results">
+    ```bash
+    make CONFIG_NAME=os-test mount
+    mkdir -p build/os-test/$(ARCH)
+    cp -rv build/$(ARCH)/os-test/filesystem/usr/share/os-test/html build/os-test/$(ARCH)
+    cp -v build/$(ARCH)/os-test/filesystem/usr/share/os-test/os-test.json build/os-test/$(ARCH)
+    tar -czf build/os-test/$(ARCH)/out.tar.gz -C build/$(ARCH)/os-test/filesystem/usr/share/os-test out
+    make CONFIG_NAME=os-test unmount
+    ```
+  </Step>
+</Steps>
+
+## Test Recipes
+
+Redox includes several test recipes:
+
+### Hello World Tests
+
+Multi-language hello world tests in `recipes/tests/hello-redox/files/`:
+
+- `test.c` - C test
+- `test.cpp` - C++ test
+- `test.go` - Go test
+- `test.java` - Java test
+- `test.js` - JavaScript test
+- `test.lua` - Lua test
+- `test.py` - Python test
+- `test.rs` - Rust test
+- `test.zig` - Zig test
+
+### Automated Testing
+
+The `auto-test` recipe group includes an Ion script for automated testing:
+
+```bash
+recipes/groups/auto-test/auto-test.ion
+```
+
+## Testing Specific Components
+
+<Tabs>
+  <Tab title="Recipe Testing">
+    Test a specific recipe:
+    
+    ```bash
+    # Clean and rebuild
+    make cr.recipe-name
+    
+    # Build with tests
+    make r.recipe-name
+    
+    # Push to image and test
+    make crp.recipe-name
+    make qemu
+    ```
+  </Tab>
+  
+  <Tab title="Kernel Testing">
+    Test kernel changes:
+    
+    ```bash
+    # Clean and rebuild kernel
+    make cr.kernel
+    
+    # Update initfs
+    # See: https://doc.redox-os.org/book/coding-and-building.html#how-to-update-initfs
+    
+    # Rebuild system
+    make rebuild
+    
+    # Test in QEMU
+    make qemu
+    ```
+  </Tab>
+  
+  <Tab title="Driver Testing">
+    Test driver changes:
+    
+    ```bash
+    # Build with debug symbols
+    REPO_DEBUG=1 make cr.driver-name
+    
+    # Update initfs if needed
+    
+    # Test with logging
+    make qemu serial=yes qemu_serial_logfile=driver-test.log
+    ```
+  </Tab>
+  
+  <Tab title="relibc Testing">
+    Test relibc changes:
+    
+    ```bash
+    # Clean relibc (recipe and sysroot)
+    make c.relibc
+    
+    # Rebuild
+    make r.relibc
+    
+    # Rebuild dependent recipes
+    make rebuild
+    
+    # Test
+    make qemu
+    ```
+  </Tab>
+</Tabs>
+
+## Automated Testing in CI
+
+### Toolchain Testing
+
+Build and package the toolchain:
+
+```bash
+make ci-toolchain
+```
+
+This creates:
+- `gcc-install.tar.gz`
+- `relibc-install.tar.gz`
+- `rust-install.tar.gz`
+- `clang-install.tar.gz`
+- `SHA256SUM`
+
+In `build/toolchain/$(HOST_TARGET)/$(TARGET)/`
+
+### Multi-Architecture Testing
+
+Test packaging for all architectures:
+
+```bash
+for arch in x86_64 i586 aarch64 riscv64gc; do
+  make CONFIG_NAME=ci SKIP_CHECK_TOOLS=1 repo-tree ARCH=$arch
+done
+```
+
+## Regression Testing
+
+<Steps>
+  <Step title="Identify regression">
+    Note the commit where the issue started.
+  </Step>
+  
+  <Step title="Use git bisect">
+    ```bash
+    git bisect start
+    git bisect bad HEAD
+    git bisect good <known-good-commit>
+    ```
+  </Step>
+  
+  <Step title="Test each commit">
+    ```bash
+    make clean
+    make all
+    make qemu
+    # Test for the issue
+    git bisect good  # or bad
+    ```
+  </Step>
+  
+  <Step title="Find the culprit">
+    Git bisect will identify the problematic commit.
+  </Step>
+</Steps>
+
+## Performance Testing
+
+### Benchmark Configuration
+
+Use the tests configuration with benchmarks:
+
+```bash
+make all CONFIG_NAME=tests
+make qemu CONFIG_NAME=tests
+```
+
+The `tests.toml` includes the `benchmarks` package.
+
+### Timing Builds
+
+```bash
+# Time a full build
+time make all
+
+# Time a recipe build
+time make r.recipe-name
+
+# Time with podman bootstrap
+time bash -e podman_bootstrap.sh
+```
+
+## Test Coverage
+
+<Info>
+Test coverage for Rust code can be generated using `cargo-tarpaulin` or `cargo-llvm-cov`.
+</Info>
+
+```bash
+# Install tarpaulin
+cargo install cargo-tarpaulin
+
+# Generate coverage report
+cargo tarpaulin --out Html --output-dir coverage
+```
+
+## Testing Best Practices
+
+<AccordionGroup>
+  <Accordion title="Before Submitting MR">
+    <Steps>
+      <Step title="Format code">
+        ```bash
+        cargo fmt
+        ```
+      </Step>
+      
+      <Step title="Run tests">
+        ```bash
+        cargo test --locked
+        ```
+      </Step>
+      
+      <Step title="Build and test">
+        ```bash
+        make cr.component-name
+        make qemu
+        ```
+      </Step>
+      
+      <Step title="Test on multiple configs">
+        ```bash
+        make all CONFIG_NAME=server
+        make all CONFIG_NAME=desktop
+        ```
+      </Step>
+    </Steps>
+  </Accordion>
+  
+  <Accordion title="Testing Cross-Platform">
+    Test your changes on all supported architectures:
+    
+    ```bash
+    # x86_64 (default)
+    make all ARCH=x86_64
+    make qemu ARCH=x86_64
+    
+    # i586 (32-bit x86)
+    make all ARCH=i586
+    make qemu ARCH=i586
+    
+    # aarch64 (ARM64)
+    make all ARCH=aarch64
+    make qemu ARCH=aarch64
+    
+    # riscv64gc (RISC-V)
+    make all ARCH=riscv64gc
+    make qemu ARCH=riscv64gc
+    ```
+  </Accordion>
+  
+  <Accordion title="Testing with Different Settings">
+    Vary QEMU settings to catch edge cases:
+    
+    ```bash
+    # Different CPU counts
+    make qemu QEMU_SMP=1
+    make qemu QEMU_SMP=4
+    make qemu QEMU_SMP=8
+    
+    # Different memory sizes
+    make qemu QEMU_MEM=512
+    make qemu QEMU_MEM=2048
+    make qemu QEMU_MEM=4096
+    
+    # Different disk types
+    make qemu disk=nvme
+    make qemu disk=ata
+    make qemu disk=virtio
+    
+    # With/without KVM
+    make qemu kvm=yes
+    make qemu kvm=no
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting Tests
+
+<AccordionGroup>
+  <Accordion title="Tests Fail Locally But Pass in CI">
+    - Ensure your build environment matches CI (use podman)
+    - Check for uncommitted changes
+    - Verify dependencies are up-to-date: `make pull`
+    - Clean and rebuild: `make clean && make all`
+  </Accordion>
+  
+  <Accordion title="Tests Pass Locally But Fail in CI">
+    - Check CI logs for specific errors
+    - Verify all files are committed
+    - Ensure no local-only configuration
+    - Test with `PODMAN_BUILD=0` like CI does
+  </Accordion>
+  
+  <Accordion title="Intermittent Test Failures">
+    - May be timing-related (try `kvm=no`)
+    - Check for race conditions
+    - Test with different QEMU_SMP values
+    - Review serial logs: `make qemu serial=yes qemu_serial_logfile=test.log`
+  </Accordion>
+</AccordionGroup>
+
+## Additional Resources
+
+<CardGroup cols={2}>
+  <Card title="CI Configuration" icon="gitlab" href="https://gitlab.redox-os.org/redox-os/redox/-/blob/master/.gitlab-ci.yml">
+    View the complete CI configuration
+  </Card>
+  
+  <Card title="Developer FAQ" icon="circle-question" href="https://doc.redox-os.org/book/developer-faq.html">
+    Common testing questions
+  </Card>
+  
+  <Card title="Debugging Guide" icon="bug" href="/development/debugging">
+    Debug failing tests
+  </Card>
+  
+  <Card title="Build System Reference" icon="book" href="https://doc.redox-os.org/book/build-system-reference.html">
+    Complete build system documentation
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Contributing Guide" icon="hand-holding-heart" href="/development/contributing">
+    Review contribution guidelines
+  </Card>
+  
+  <Card title="Development Workflow" icon="code-branch" href="/development/workflow">
+    Learn the development process
+  </Card>
+</CardGroup>

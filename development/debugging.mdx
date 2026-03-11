@@ -1,0 +1,713 @@
+---
+title: Debugging Guide
+description: Tools and techniques for debugging Redox OS
+---
+
+This guide covers debugging techniques and tools for Redox OS development, including GDB debugging, QEMU options, and network analysis.
+
+## GDB Debugging
+
+### Kernel Debugging
+
+Debug the Redox kernel using GDB with QEMU's remote debugging protocol.
+
+<Steps>
+  <Step title="Start QEMU with GDB support">
+    In one terminal, start QEMU with GDB enabled:
+    
+    ```bash
+    make qemu gdb=yes
+    ```
+    
+    <Info>
+    This starts QEMU with the flags `-d cpu_reset -s -S`, which:
+    - Logs CPU resets
+    - Opens a GDB server on port 1234
+    - Waits for GDB to connect before starting
+    </Info>
+  </Step>
+  
+  <Step title="Connect GDB">
+    In another terminal, connect GDB to the kernel:
+    
+    ```bash
+    make gdb
+    ```
+    
+    This runs:
+    ```bash
+    rust-gdb recipes/core/kernel/target/<TARGET>/build/kernel.sym \
+      --eval-command="target remote :1234"
+    ```
+  </Step>
+  
+  <Step title="Debug">
+    Use standard GDB commands to debug:
+    
+    ```gdb
+    # Set a breakpoint
+    break kernel::main
+    
+    # Continue execution
+    continue
+    
+    # Step through code
+    step
+    next
+    
+    # Examine variables
+    print variable_name
+    
+    # View backtrace
+    backtrace
+    ```
+  </Step>
+</Steps>
+
+<Tip>
+**Non-blocking GDB mode:** Use `gdb=nonblock` to allow attaching GDB without blocking QEMU startup:
+
+```bash
+make qemu gdb=nonblock
+```
+</Tip>
+
+### Userspace Debugging
+
+<Warning>
+**Use gdbserver when possible!** The userspace debugging target stops the entire VM, not just the application. Only use this when:
+- The application runs early during boot before the network stack starts
+- You need to debug the interaction between the application and kernel
+</Warning>
+
+<Tabs>
+  <Tab title="GDB Direct (Not Recommended)">
+    <Steps>
+      <Step title="Set the application file">
+        ```bash
+        export GDB_APP_FILE=path/to/application/binary
+        ```
+      </Step>
+      
+      <Step title="Start QEMU with GDB">
+        ```bash
+        make qemu gdb=yes
+        ```
+      </Step>
+      
+      <Step title="Connect userspace GDB">
+        ```bash
+        make gdb-userspace
+        ```
+        
+        This runs:
+        ```bash
+        rust-gdb $GDB_APP_FILE \
+          --eval-command="add-symbol-file recipes/core/kernel/target/<TARGET>/build/kernel.sym" \
+          --eval-command="target remote :1234"
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+  
+  <Tab title="GDB with gdbserver (Recommended)">
+    When the network stack is available, use gdbserver running inside Redox:
+    
+    <Steps>
+      <Step title="Start Redox with network">
+        ```bash
+        make qemu net=redir
+        ```
+        
+        <Info>
+        Port 64126 is forwarded for gdbserver.
+        </Info>
+      </Step>
+      
+      <Step title="Run application with gdbserver in Redox">
+        Inside the Redox VM:
+        ```bash
+        gdbserver :64126 /path/to/application
+        ```
+      </Step>
+      
+      <Step title="Connect from host">
+        On your host system:
+        ```bash
+        rust-gdb /path/to/application/binary
+        (gdb) target remote :64126
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+### Advanced GDB Debugging
+
+<AccordionGroup>
+  <Accordion title="Debug with gdbgui (Interactive Web Interface)">
+    Enable debug symbols and use gdbgui for a web-based debugging interface:
+    
+    <Steps>
+      <Step title="Build with debug symbols">
+        ```bash
+        REPO_DEBUG=1 make cr.recipe rebuild
+        ```
+        
+        Verify debug symbols:
+        ```bash
+        file binary-path  # Should output "debug_info, not stripped"
+        ```
+      </Step>
+      
+      <Step title="Start QEMU with GDB">
+        ```bash
+        make qemu kvm=no QEMU_SMP=1 gdb=yes
+        ```
+      </Step>
+      
+      <Step title="Launch gdbgui">
+        ```bash
+        make debug.recipe-name DEBUG_BIN=binary-name
+        ```
+        
+        Open http://localhost:5000/dashboard in your browser.
+      </Step>
+    </Steps>
+    
+    <Warning>
+    This is experimental and may not work if ARCH differs from the host architecture.
+    </Warning>
+  </Accordion>
+  
+  <Accordion title="Multi-arch Debugging">
+    For debugging architectures different from your host:
+    
+    ```bash
+    export RUST_GDB=gdb-multiarch
+    make gdb
+    ```
+    
+    This is set automatically in the Makefile:
+    ```makefile
+    export RUST_GDB=gdb-multiarch
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## QEMU Debugging Options
+
+### Serial Output and Debugging Console
+
+<Tabs>
+  <Tab title="Serial Console (Default)">
+    By default, serial output is enabled:
+    
+    ```bash
+    make qemu
+    ```
+    
+    This uses:
+    ```bash
+    -chardev stdio,id=debug,signal=off,mux=on
+    -serial chardev:debug
+    -mon chardev=debug
+    ```
+  </Tab>
+  
+  <Tab title="Debug Console Only">
+    Disable serial and use debug console:
+    
+    ```bash
+    make qemu serial=no
+    ```
+    
+    This uses:
+    ```bash
+    -chardev stdio,id=debug
+    -device isa-debugcon,iobase=0x402,chardev=debug
+    ```
+  </Tab>
+  
+  <Tab title="Serial with Logfile">
+    Log serial output to a file:
+    
+    ```bash
+    make qemu qemu_serial_logfile=serial.log
+    ```
+  </Tab>
+</Tabs>
+
+### Graphics and Display Options
+
+<CodeGroup>
+```bash No Graphics (Headless)
+make qemu gpu=no
+```
+
+```bash Standard VGA
+make qemu gpu=vga
+```
+
+```bash VirtIO GPU
+make qemu gpu=virtio
+```
+
+```bash VirtIO with SDL
+make qemu gpu=virtio-sdl
+```
+
+```bash VirtIO with OpenGL
+make qemu gpu=virtio-gl
+```
+
+```bash RAM Framebuffer
+make qemu gpu=ramfb
+```
+
+```bash Multi-Monitor Setup
+make qemu gpu=multi
+```
+</CodeGroup>
+
+### CPU and Performance Options
+
+<Tabs>
+  <Tab title="KVM Acceleration">
+    Enable KVM for faster execution (default on matching host arch):
+    
+    ```bash
+    make qemu kvm=yes
+    ```
+    
+    Disable KVM:
+    ```bash
+    make qemu kvm=no
+    ```
+    
+    <Info>
+    On Linux with matching architecture, this uses `-enable-kvm -cpu host`.
+    On macOS with ARM, this uses `-accel hvf -cpu max`.
+    </Info>
+  </Tab>
+  
+  <Tab title="CPU Configuration">
+    Adjust CPU cores and memory:
+    
+    ```bash
+    # Set SMP cores (default varies by arch)
+    make qemu QEMU_SMP=8
+    
+    # Set memory in MB (default varies by arch)
+    make qemu QEMU_MEM=4096
+    
+    # Combine both
+    make qemu QEMU_SMP=8 QEMU_MEM=4096
+    ```
+  </Tab>
+  
+  <Tab title="IOMMU">
+    Enable IOMMU for testing:
+    
+    ```bash
+    make qemu iommu=yes
+    ```
+  </Tab>
+</Tabs>
+
+### Disk and Storage Options
+
+<CodeGroup>
+```bash NVMe (Default)
+make qemu disk=nvme
+```
+
+```bash ATA/IDE
+make qemu disk=ata
+```
+
+```bash VirtIO Block
+make qemu disk=virtio
+```
+
+```bash USB Storage
+make qemu disk=usb
+```
+
+```bash CD-ROM
+make qemu disk=cdrom
+```
+
+```bash SD Card
+make qemu disk=sdcard
+```
+</CodeGroup>
+
+### Network Debugging
+
+<Tabs>
+  <Tab title="Network Packet Capture">
+    By default, network traffic is captured to a pcap file:
+    
+    ```bash
+    make qemu
+    ```
+    
+    This creates `build/<arch>/<config>/network.pcap`.
+    
+    View with Wireshark:
+    ```bash
+    make wireshark
+    ```
+    
+    Or directly:
+    ```bash
+    wireshark build/<arch>/<config>/network.pcap
+    ```
+  </Tab>
+  
+  <Tab title="Port Forwarding">
+    Enable port forwarding for network services:
+    
+    ```bash
+    make qemu net=redir
+    ```
+    
+    <Info>
+    Forwarded ports:
+    - 8022 → 22 (SSH)
+    - 8080 → 80 (HTTP)
+    - 8081 → 8081 (HTTP alt)
+    - 8082 → 8082 (HTTP alt)
+    - 8083 → 8083 (HTTP alt)
+    - 64126 → 64126 (gdbserver)
+    </Info>
+  </Tab>
+  
+  <Tab title="Network Adapters">
+    Choose different network adapters:
+    
+    ```bash
+    # Intel e1000 (default)
+    make qemu net=default
+    
+    # RTL8139
+    make qemu net=rtl8139
+    
+    # VirtIO network
+    make qemu net=virtio
+    
+    # USB network
+    make qemu net=usb-net
+    
+    # No network
+    make qemu net=no
+    ```
+  </Tab>
+  
+  <Tab title="Bridge Networking">
+    Use a network bridge (requires setup on host):
+    
+    ```bash
+    make qemu bridge=br0
+    ```
+  </Tab>
+</Tabs>
+
+## Logging and Error Collection
+
+### Capture All Output
+
+Capture both stdout and stderr to a log file:
+
+```bash
+make qemu 2>&1 | tee redox-debug.log
+```
+
+### Build System Logging
+
+Enable verbose logging during builds:
+
+```bash
+# Verbose cookbook output
+COOKBOOK_VERBOSE=true make r.recipe-name
+
+# Build with debug symbols
+REPO_DEBUG=1 make cr.recipe-name
+
+# Combine both
+COOKBOOK_VERBOSE=true REPO_DEBUG=1 make cr.recipe-name 2>&1 | tee build.log
+```
+
+## Architecture-Specific Debugging
+
+<Tabs>
+  <Tab title="x86_64">
+    Default configuration:
+    
+    ```bash
+    make qemu ARCH=x86_64 QEMU_SMP=4 QEMU_MEM=2048
+    ```
+    
+    Debug exit codes (for redoxer):
+    ```bash
+    make qemu redoxer=yes
+    ```
+    
+    Uses `-device isa-debug-exit` (exit code: 51 = success, 53 = failure).
+  </Tab>
+  
+  <Tab title="i586">
+    32-bit x86 debugging:
+    
+    ```bash
+    make qemu ARCH=i586 QEMU_SMP=1 QEMU_MEM=1024
+    ```
+    
+    VGA is supported on i586.
+  </Tab>
+  
+  <Tab title="aarch64">
+    ARM64 debugging:
+    
+    ```bash
+    make qemu ARCH=aarch64 gpu=ramfb
+    ```
+    
+    For Raspberry Pi 3B+ emulation:
+    ```bash
+    make qemu ARCH=aarch64 BOARD=raspi3bp
+    ```
+    
+    <Info>
+    Semihosting is enabled for redoxer on aarch64:
+    ```bash
+    -semihosting-config enable=on,target=native,userspace=on
+    ```
+    </Info>
+  </Tab>
+  
+  <Tab title="riscv64gc">
+    RISC-V debugging:
+    
+    ```bash
+    make qemu ARCH=riscv64gc QEMU_SMP=4 QEMU_MEM=2048
+    ```
+    
+    <Note>
+    RISC-V uses ACPI-off mode by default:
+    ```
+    QEMU_MACHINE=virt,acpi=off
+    ```
+    </Note>
+  </Tab>
+</Tabs>
+
+## Common Debugging Scenarios
+
+<AccordionGroup>
+  <Accordion title="Debugging Boot Issues">
+    <Steps>
+      <Step title="Use serial console">
+        ```bash
+        make qemu serial=yes qemu_serial_logfile=boot.log
+        ```
+      </Step>
+      
+      <Step title="Check bootloader">
+        For UEFI boot issues, verify firmware path:
+        ```bash
+        # x86_64
+        ls /usr/share/OVMF/OVMF_CODE.fd
+        
+        # aarch64
+        ls /usr/share/AAVMF/AAVMF_CODE.fd
+        
+        # riscv64gc
+        ls /usr/share/qemu-efi-riscv64/RISCV_VIRT_CODE.fd
+        ```
+      </Step>
+      
+      <Step title="Try different boot methods">
+        ```bash
+        # Try legacy BIOS (x86_64)
+        make qemu uefi=no
+        
+        # Try live ISO
+        make qemu live=yes
+        ```
+      </Step>
+    </Steps>
+  </Accordion>
+  
+  <Accordion title="Debugging Network Issues">
+    <Steps>
+      <Step title="Enable packet capture">
+        ```bash
+        make qemu net=default
+        ```
+        
+        This creates `build/network.pcap`.
+      </Step>
+      
+      <Step title="Analyze with Wireshark">
+        ```bash
+        make wireshark
+        ```
+      </Step>
+      
+      <Step title="Test connectivity">
+        Use port forwarding to test services:
+        ```bash
+        make qemu net=redir
+        
+        # From host
+        ssh -p 8022 user@localhost
+        curl http://localhost:8080
+        ```
+      </Step>
+    </Steps>
+  </Accordion>
+  
+  <Accordion title="Debugging Driver Issues">
+    <Steps>
+      <Step title="Build driver with debug symbols">
+        ```bash
+        REPO_DEBUG=1 make cr.driver-name
+        ```
+      </Step>
+      
+      <Step title="Update initfs">
+        See [How to update initfs](https://doc.redox-os.org/book/coding-and-building.html#how-to-update-initfs).
+      </Step>
+      
+      <Step title="Run with serial logging">
+        ```bash
+        make qemu serial=yes qemu_serial_logfile=driver-debug.log
+        ```
+      </Step>
+      
+      <Step title="Debug with GDB">
+        ```bash
+        make qemu gdb=yes
+        # In another terminal
+        make gdb
+        ```
+      </Step>
+    </Steps>
+  </Accordion>
+  
+  <Accordion title="Debugging Filesystem Issues">
+    <Steps>
+      <Step title="Mount the filesystem">
+        ```bash
+        make mount
+        ```
+        
+        Inspect at `build/<arch>/<config>/filesystem/`.
+      </Step>
+      
+      <Step title="Check disk image">
+        ```bash
+        # Check image integrity
+        file build/<arch>/<config>/harddrive.img
+        ```
+      </Step>
+      
+      <Step title="Unmount when done">
+        ```bash
+        make unmount
+        ```
+      </Step>
+    </Steps>
+  </Accordion>
+</AccordionGroup>
+
+## Performance Profiling
+
+### QEMU Performance Options
+
+```bash
+# Maximize performance
+make qemu kvm=yes QEMU_SMP=8 QEMU_MEM=4096 disk=virtio net=virtio
+
+# Profile mode (slower but more accurate)
+make qemu kvm=no QEMU_SMP=1
+```
+
+### Benchmarking
+
+Run benchmarks on Redox:
+
+```bash
+# Build with benchmarks included
+make all CONFIG_NAME=tests
+
+# Run the system
+make qemu CONFIG_NAME=tests
+```
+
+The `tests.toml` configuration includes:
+- `redox-tests` package
+- `benchmarks` package
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="GDB Won't Connect">
+    <Steps>
+      <Step title="Check QEMU is waiting">
+        Ensure you see the GDB server message:
+        ```
+        waiting for gdb connection on port 1234
+        ```
+      </Step>
+      
+      <Step title="Verify port availability">
+        ```bash
+        netstat -an | grep 1234
+        ```
+      </Step>
+      
+      <Step title="Try manual connection">
+        ```bash
+        gdb-multiarch
+        (gdb) target remote :1234
+        ```
+      </Step>
+    </Steps>
+  </Accordion>
+  
+  <Accordion title="Serial Output Not Showing">
+    - Try `serial=yes` explicitly
+    - Check if output is going to a logfile
+    - Verify QEMU version compatibility
+  </Accordion>
+  
+  <Accordion title="QEMU Performance Issues">
+    - Enable KVM: `make qemu kvm=yes`
+    - Reduce SMP: `make qemu QEMU_SMP=1`
+    - Use lighter GPU: `make qemu gpu=no`
+    - Disable audio: `make qemu audio=no`
+  </Accordion>
+</AccordionGroup>
+
+## Additional Resources
+
+<CardGroup cols={2}>
+  <Card title="Developer FAQ" icon="circle-question" href="https://doc.redox-os.org/book/developer-faq.html">
+    Common debugging questions
+  </Card>
+  
+  <Card title="Build System Reference" icon="book" href="https://doc.redox-os.org/book/build-system-reference.html">
+    Complete build system documentation
+  </Card>
+  
+  <Card title="Testing Guide" icon="vial" href="/development/testing">
+    Learn how to test your changes
+  </Card>
+  
+  <Card title="Kernel Documentation" icon="microchip" href="https://doc.redox-os.org/kernel/kernel/">
+    Kernel API documentation
+  </Card>
+</CardGroup>

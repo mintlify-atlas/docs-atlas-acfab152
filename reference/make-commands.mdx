@@ -1,0 +1,708 @@
+---
+title: Make Commands Reference
+description: Complete reference for all Makefile targets in the Redox OS build system
+---
+
+## Overview
+
+The Redox OS build system uses GNU Make with multiple modular configuration files in the `mk/` directory. This reference documents all available make targets organized by category.
+
+## Primary Build Targets
+
+### all
+
+Build the default hard drive image.
+
+```bash
+make all
+```
+
+<Info>This is the default target when running `make` without arguments. It builds `$(BUILD)/harddrive.img`.</Info>
+
+### image
+
+Clean and rebuild the hard drive image from scratch.
+
+```bash
+make image
+```
+
+This target:
+- Unmounts any mounted filesystems
+- Removes existing `harddrive.img` and `redox-live.iso`
+- Builds a fresh image
+
+### rebuild
+
+Rebuild the image, clearing the repo tag.
+
+```bash
+make rebuild
+```
+
+Cleans `$(BUILD)/repo.tag` and rebuilds the entire system.
+
+## Live ISO Targets
+
+### live
+
+Build a bootable live ISO image.
+
+```bash
+make live
+```
+
+Creates `$(BUILD)/redox-live.iso` that can be booted without installation.
+
+### popsicle
+
+Open the Popsicle USB flasher GUI with the live ISO.
+
+```bash
+make popsicle
+```
+
+<Note>Requires `popsicle-gtk` to be installed on the host system.</Note>
+
+## Repository Management Targets
+
+### repo
+
+Build all packages specified in the filesystem configuration.
+
+```bash
+make repo
+```
+
+Builds `$(BUILD)/repo.tag` which triggers package compilation.
+
+### repo_clean
+
+Clean all recipe build artifacts.
+
+```bash
+make repo_clean
+```
+
+Equivalent to `make c.--all`.
+
+### fetch_clean
+
+Delete all recipe source downloads.
+
+```bash
+make fetch_clean
+```
+
+Equivalent to `make u.--all`.
+
+### repo-tree
+
+Display the build dependency tree for recipes.
+
+```bash
+make repo-tree
+```
+
+Shows which recipes need to be built and in what order.
+
+### image-tree
+
+Display the package installation tree.
+
+```bash
+make image-tree
+```
+
+Shows the estimated image size and package dependencies.
+
+### repo_clean_target
+
+Clean target-specific artifacts for all recipes.
+
+```bash
+make repo_clean_target
+```
+
+Removes only the architecture-specific build artifacts.
+
+## Recipe-Specific Targets
+
+These targets operate on individual recipes or comma-separated lists.
+
+### f.RECIPE
+
+Fetch source for one or more recipes.
+
+```bash
+make f.coreutils
+make f.coreutils,bash,gcc
+```
+
+<ParamField path="RECIPE" type="string" required>
+  Recipe name(s), comma-separated for multiple recipes
+</ParamField>
+
+### r.RECIPE
+
+Cook (build) one or more recipes.
+
+```bash
+make r.kernel
+make r.kernel,drivers,init
+```
+
+<ParamField path="RECIPE" type="string" required>
+  Recipe name(s) to build
+</ParamField>
+
+### c.RECIPE
+
+Clean build artifacts for one or more recipes.
+
+```bash
+make c.gcc
+make c.--all  # Clean all recipes
+```
+
+<ParamField path="RECIPE" type="string" required>
+  Recipe name(s) to clean, or `--all` for everything
+</ParamField>
+
+### u.RECIPE
+
+Unfetch (delete source) for one or more recipes.
+
+```bash
+make u.rust
+make u.--all  # Delete all sources
+```
+
+<ParamField path="RECIPE" type="string" required>
+  Recipe name(s) to unfetch
+</ParamField>
+
+### p.RECIPE
+
+Push (install) compiled package into mounted filesystem.
+
+```bash
+make p.orbital
+```
+
+<Warning>Do not run this while QEMU is running, as it may corrupt the disk image.</Warning>
+
+<ParamField path="RECIPE" type="string" required>
+  Recipe name(s) to push
+</ParamField>
+
+### pp.RECIPE
+
+Push package with its package dependencies.
+
+```bash
+make pp.netsurf
+```
+
+### cr.RECIPE
+
+Clean and rebuild recipes.
+
+```bash
+make cr.relibc
+```
+
+Equivalent to `make c.RECIPE && make r.RECIPE`.
+
+### ucr.RECIPE
+
+Unfetch, clean, and rebuild recipes.
+
+```bash
+make ucr.gcc
+```
+
+### uc.RECIPE
+
+Unfetch and clean recipes.
+
+```bash
+make uc.llvm
+```
+
+### ucf.RECIPE
+
+Unfetch, clean, and fetch recipes.
+
+```bash
+make ucf.rust
+```
+
+### rp.RECIPE
+
+Build and push recipes.
+
+```bash
+make rp.cosmic-term
+```
+
+### crp.RECIPE
+
+Clean, rebuild, and push recipes.
+
+```bash
+make crp.installer
+```
+
+### ucrp.RECIPE
+
+Unfetch, clean, rebuild, and push recipes.
+
+```bash
+make ucrp.kernel
+```
+
+### rt.RECIPE
+
+Show build tree for recipes.
+
+```bash
+make rt.gcc
+```
+
+### pt.RECIPE
+
+Show push tree for recipes.
+
+```bash
+make pt.coreutils
+```
+
+### ppt.RECIPE
+
+Show push tree with package dependencies.
+
+```bash
+make ppt.orbital
+```
+
+### find.RECIPE
+
+Find the path to recipe directories.
+
+```bash
+make find.kernel
+make find.gcc,rust,llvm
+```
+
+### debug.RECIPE
+
+Open gdbgui debugger for a recipe binary.
+
+```bash
+make debug.kernel
+make debug.pcid DEBUG_BIN=pcid
+```
+
+<ParamField path="DEBUG_BIN" type="string">
+  Specific binary name to debug (optional)
+</ParamField>
+
+<Note>Start QEMU with `make qemu kvm=no QEMU_SMP=1 gdb=yes` before debugging.</Note>
+
+## Clean Targets
+
+### clean
+
+Remove all build artifacts.
+
+```bash
+make clean
+```
+
+Removes:
+- `repo/` directory
+- `$(BUILD)` directory
+- `$(PREFIX)` directory
+- Filesystem tools
+
+### distclean
+
+Complete clean including source downloads.
+
+```bash
+make distclean
+```
+
+Performs `clean` plus recipe source cleanup.
+
+### fstools_clean
+
+Clean filesystem tools only.
+
+```bash
+make fstools_clean
+```
+
+### prefix_clean
+
+Remove cross-compiler prefix builds.
+
+```bash
+make prefix_clean
+```
+
+### static_clean
+
+Remove relibc and statically linked recipes.
+
+```bash
+make static_clean
+```
+
+### container_clean
+
+Remove Podman container and cached files.
+
+```bash
+make container_clean
+```
+
+## Emulation Targets
+
+### qemu
+
+Run Redox OS in QEMU.
+
+```bash
+make qemu
+```
+
+<Accordion title="QEMU Configuration Variables">
+  <ParamField path="kvm" type="yes|no" default="auto">
+    Enable KVM acceleration
+  </ParamField>
+  
+  <ParamField path="gpu" type="vga|virtio|ramfb|no" default="vga">
+    Graphics adapter type
+  </ParamField>
+  
+  <ParamField path="net" type="e1000|rtl8139|virtio|redir|no" default="e1000">
+    Network adapter type
+  </ParamField>
+  
+  <ParamField path="disk" type="nvme|ata|usb|virtio|sdcard" default="nvme">
+    Disk controller type
+  </ParamField>
+  
+  <ParamField path="audio" type="hda|ac97|no" default="hda">
+    Audio device type
+  </ParamField>
+  
+  <ParamField path="serial" type="yes|no" default="yes">
+    Enable serial console
+  </ParamField>
+  
+  <ParamField path="gdb" type="yes|no" default="no">
+    Wait for GDB connection on port 1234
+  </ParamField>
+  
+  <ParamField path="live" type="yes|no" default="no">
+    Boot from live ISO instead of hard drive
+  </ParamField>
+  
+  <ParamField path="uefi" type="yes|no" default="yes">
+    Use UEFI boot (x86_64/aarch64)
+  </ParamField>
+  
+  <ParamField path="QEMU_SMP" type="number" default="4">
+    Number of CPU cores
+  </ParamField>
+  
+  <ParamField path="QEMU_MEM" type="number" default="2048">
+    Memory in MB
+  </ParamField>
+</Accordion>
+
+#### Examples
+
+```bash
+# Run with KVM disabled
+make qemu kvm=no
+
+# Run with virtio GPU and 4GB RAM
+make qemu gpu=virtio QEMU_MEM=4096
+
+# Run with GDB support
+make qemu gdb=yes QEMU_SMP=1
+
+# Boot live ISO with no network
+make qemu live=yes net=no
+```
+
+### virtualbox
+
+Create and run VirtualBox VM.
+
+```bash
+make virtualbox
+```
+
+Creates a new VirtualBox VM named "Redox" with the built hard drive image.
+
+## Filesystem Targets
+
+### mount
+
+Mount the hard drive image.
+
+```bash
+make mount
+```
+
+Mounts `$(BUILD)/harddrive.img` to `$(BUILD)/filesystem/`.
+
+### mount_extra
+
+Mount the extra disk image.
+
+```bash
+make mount_extra
+```
+
+### mount_live
+
+Mount the live ISO image.
+
+```bash
+make mount_live
+```
+
+### unmount
+
+Unmount the currently mounted filesystem.
+
+```bash
+make unmount
+```
+
+## Cross-Compiler Targets
+
+### prefix
+
+Build the cross-compiler toolchain.
+
+```bash
+make prefix
+```
+
+Builds GCC, Rust, Clang, and relibc for cross-compilation.
+
+<Info>With `PREFIX_BINARY=1` (default), downloads prebuilt toolchains instead of building from source.</Info>
+
+## Podman Container Targets
+
+### container_shell
+
+Open a shell in the Podman build container.
+
+```bash
+make container_shell
+```
+
+<ParamField path="PODMAN_BUILD" type="0|1" required>
+  Must be set to 1 in `.config` or `mk/config.mk`
+</ParamField>
+
+### container_touch
+
+Mark the container as built without rebuilding.
+
+```bash
+make container_touch
+```
+
+### container_kill
+
+Kill the running Podman container.
+
+```bash
+make container_kill
+```
+
+### container_push
+
+Push the container image to registry.
+
+```bash
+make container_push
+```
+
+## Development Targets
+
+### env
+
+Open a shell with build environment variables set.
+
+```bash
+make env
+```
+
+Provides an interactive shell with `PATH` and compiler variables configured.
+
+### setenv
+
+Print environment variables for manual export.
+
+```bash
+make setenv
+```
+
+Outputs:
+```bash
+export ARCH='x86_64'
+export BOARD=''
+export CONFIG_NAME='desktop'
+export BUILD='build/x86_64/desktop'
+```
+
+### pull
+
+Update the repository and filesystem tools.
+
+```bash
+make pull
+```
+
+Runs `git pull` and removes the fstools tag to trigger rebuild.
+
+### gdb
+
+Connect GDB to debug the kernel.
+
+```bash
+make gdb
+```
+
+Connects to QEMU's GDB stub on port 1234.
+
+<Note>Start QEMU with `gdb=yes` first.</Note>
+
+### gdb-userspace
+
+Debug userspace applications without gdbserver.
+
+```bash
+make gdb-userspace GDB_APP_FILE=path/to/binary
+```
+
+<Warning>This is a fallback method. Prefer using gdbserver inside the VM when possible.</Warning>
+
+### kernel_debugger
+
+Launch gdbgui in container for kernel debugging.
+
+```bash
+make kernel_debugger
+```
+
+Opens gdbgui on http://localhost:5000 for kernel debugging.
+
+### wireshark
+
+Open Wireshark to analyze network traffic.
+
+```bash
+make wireshark
+```
+
+Opens `$(BUILD)/network.pcap` captured during QEMU execution.
+
+### cargo-fetch
+
+Fetch Cargo dependencies for offline builds.
+
+```bash
+make cargo-fetch
+```
+
+Required before building with `REPO_OFFLINE=1`.
+
+## CI Targets
+
+### ci-img
+
+Build standard images for CI/release.
+
+```bash
+make ci-img IMG_TAG=0.9.0
+```
+
+<ParamField path="IMG_TAG" type="string">
+  Version tag for image names (default: git describe)
+</ParamField>
+
+<ParamField path="IMG_DIR" type="string" default="build/img/$(ARCH)">
+  Output directory for images
+</ParamField>
+
+Builds server, desktop, and demo configurations.
+
+### ci-pkg
+
+Build packages for CI.
+
+```bash
+make ci-pkg
+```
+
+### ci-toolchain
+
+Build toolchain archives for distribution.
+
+```bash
+make ci-toolchain
+```
+
+Creates compressed toolchain archives in `build/toolchain/`.
+
+### ci-os-test
+
+Run OS tests and collect results.
+
+```bash
+make ci-os-test
+```
+
+## Special Targets
+
+### FORCE
+
+Empty target used to force execution of other targets.
+
+<Info>This is an internal target used by the build system.</Info>
+
+## Configuration-Specific Targets
+
+### server, desktop, demo
+
+Build named configuration images.
+
+```bash
+make server
+make desktop
+make demo
+```
+
+Each builds both hard drive and live ISO for the specified configuration.
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Repo Tool" icon="wrench" href="/reference/repo-tool">
+    Command-line tool for recipe management
+  </Card>
+  <Card title="Configuration Options" icon="gear" href="/reference/configuration-options">
+    Build system configuration variables
+  </Card>
+</CardGroup>

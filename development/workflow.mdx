@@ -1,0 +1,489 @@
+---
+title: Development Workflow
+description: Git workflow and development process for Redox OS
+---
+
+This guide covers the development workflow for contributing to Redox OS, including setting up the build system, making changes, and submitting merge requests.
+
+## Setting Up the Build System
+
+### Prerequisites
+
+<Note>
+You need to have [curl](https://curl.se/) installed on your system.
+</Note>
+
+### Download and Bootstrap
+
+<Steps>
+  <Step title="Download the bootstrap script">
+    ```bash
+    curl -sf https://gitlab.redox-os.org/redox-os/redox/raw/master/podman_bootstrap.sh -o podman_bootstrap.sh
+    ```
+  </Step>
+  
+  <Step title="Run the bootstrap script">
+    ```bash
+    time bash -e podman_bootstrap.sh
+    ```
+  </Step>
+  
+  <Step title="Build default recipes">
+    ```bash
+    make all
+    ```
+    
+    <Warning>
+    If your operating system does not use SELinux, set `USE_SELINUX=0`:
+    
+    ```bash
+    make all USE_SELINUX=0
+    ```
+    </Warning>
+  </Step>
+</Steps>
+
+## Git Workflow
+
+### Creating Issues
+
+<Steps>
+  <Step title="Check for duplicates">
+    Search existing issues to avoid creating duplicates.
+  </Step>
+  
+  <Step title="File the issue">
+    Create your issue following the [Filing Issues](https://doc.redox-os.org/book/filing-issues.html) guidelines.
+  </Step>
+  
+  <Step title="Share in chat">
+    Post the issue link in the Dev or Support rooms of the chat. This ensures developers see your issue and prevents it from being forgotten.
+  </Step>
+</Steps>
+
+### Making Changes
+
+<Tabs>
+  <Tab title="Recipe Changes">
+    When making local changes to recipe sources:
+    
+    <Steps>
+      <Step title="Disable automatic updates">
+        For one or multiple recipes, see [Local Recipe Changes](https://doc.redox-os.org/book/configuration-settings.html#local-recipe-changes).
+        
+        For all recipes, enable [Cookbook Offline Mode](https://doc.redox-os.org/book/configuration-settings.html#cookbook-offline-mode).
+      </Step>
+      
+      <Step title="Make your changes">
+        Edit the recipe source files as needed.
+      </Step>
+      
+      <Step title="Build and test">
+        ```bash
+        make r.recipe-name
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+  
+  <Tab title="System Components">
+    Changes to system components, drivers, or RedoxFS require manual initfs updates:
+    
+    <Steps>
+      <Step title="Make your changes">
+        Edit the source files for the system component.
+      </Step>
+      
+      <Step title="Update initfs">
+        See [How to update initfs](https://doc.redox-os.org/book/coding-and-building.html#how-to-update-initfs).
+      </Step>
+      
+      <Step title="Rebuild">
+        ```bash
+        make rebuild
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+  
+  <Tab title="Kernel/Core">
+    For kernel and core system changes:
+    
+    <Steps>
+      <Step title="Clean previous builds">
+        ```bash
+        make c.kernel
+        ```
+      </Step>
+      
+      <Step title="Make changes and rebuild">
+        ```bash
+        make r.kernel
+        ```
+      </Step>
+      
+      <Step title="Update initfs if needed">
+        See [How to update initfs](https://doc.redox-os.org/book/coding-and-building.html#how-to-update-initfs).
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+## Build System Commands
+
+### Basic Commands
+
+<CodeGroup>
+```bash Build Everything
+make all
+```
+
+```bash Rebuild Everything
+make rebuild
+```
+
+```bash Create Live ISO
+make live
+```
+
+```bash Clean Build
+make clean
+```
+
+```bash Full Clean (includes sources)
+make distclean
+```
+</CodeGroup>
+
+### Recipe Management
+
+<AccordionGroup>
+  <Accordion title="Find Recipe">
+    Find recipe for one or more targets:
+    
+    ```bash
+    make find.target-name
+    ```
+  </Accordion>
+  
+  <Accordion title="Fetch Recipe">
+    Fetch source or binary for a recipe:
+    
+    ```bash
+    make f.recipe-name
+    ```
+    
+    Fetch multiple recipes (comma-separated):
+    
+    ```bash
+    make f.recipe1,recipe2,recipe3
+    ```
+  </Accordion>
+  
+  <Accordion title="Cook (Build) Recipe">
+    Build a specific recipe:
+    
+    ```bash
+    make r.recipe-name
+    ```
+    
+    Build multiple recipes:
+    
+    ```bash
+    make r.recipe1,recipe2,recipe3
+    ```
+  </Accordion>
+  
+  <Accordion title="Clean Recipe">
+    Clean a specific recipe:
+    
+    ```bash
+    make c.recipe-name
+    ```
+    
+    Clean multiple recipes:
+    
+    ```bash
+    make c.recipe1,recipe2,recipe3
+    ```
+    
+    <Warning>
+    Special case for relibc (cleans both recipe and sysroot):
+    
+    ```bash
+    make c.relibc
+    ```
+    </Warning>
+  </Accordion>
+  
+  <Accordion title="Push Recipe">
+    Push compiled package into existing image:
+    
+    <Warning>
+    DO NOT RUN THIS WHILE QEMU IS RUNNING - the disk might corrupt.
+    </Warning>
+    
+    ```bash
+    make p.recipe-name
+    ```
+    
+    Push with package dependencies:
+    
+    ```bash
+    make pp.recipe-name
+    ```
+  </Accordion>
+  
+  <Accordion title="Combined Commands">
+    Clean and rebuild:
+    
+    ```bash
+    make cr.recipe-name
+    ```
+    
+    Unfetch, clean, and rebuild:
+    
+    ```bash
+    make ucr.recipe-name
+    ```
+    
+    Clean, rebuild, and push:
+    
+    ```bash
+    make crp.recipe-name
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### View Recipe Trees
+
+```bash
+# List all recipes in cook-tree fashion
+make repo-tree
+
+# List all recipes in push-tree fashion
+make image-tree
+
+# Show what to cook for a specific recipe
+make rt.recipe-name
+
+# Show what to push for a specific recipe
+make pt.recipe-name
+
+# Show what to push with dependencies
+make ppt.recipe-name
+```
+
+## Updating Your Fork
+
+```bash
+# Pull latest changes
+git pull
+
+# Remove fstools tag to rebuild if needed
+rm -f $(FSTOOLS_TAG)
+
+# Or use the make target
+make pull
+```
+
+## Code Style
+
+### Rust Formatting
+
+Run `rustfmt` on your changes before committing:
+
+```bash
+cargo fmt
+```
+
+<Tip>
+The CI system will check formatting automatically. You can test locally:
+
+```bash
+cargo fmt -- --check
+```
+</Tip>
+
+## Creating Merge Requests
+
+<Steps>
+  <Step title="Review your changes">
+    Ensure your changes are complete and follow the [Best Practices](https://doc.redox-os.org/book/best-practices.html).
+  </Step>
+  
+  <Step title="Format your code">
+    ```bash
+    cargo fmt
+    ```
+  </Step>
+  
+  <Step title="Test your changes">
+    See the [Testing Guide](/development/testing) for comprehensive testing instructions.
+  </Step>
+  
+  <Step title="Create the MR">
+    Follow the [Creating Proper Pull Requests](https://doc.redox-os.org/book/creating-proper-pull-requests.html) guide.
+  </Step>
+  
+  <Step title="Share in MRs room">
+    Post your MR link in the [MRs](https://matrix.to/#/#redox-mrs:matrix.org) Matrix room to ensure it gets reviewed.
+  </Step>
+</Steps>
+
+<Tip>
+**For quick reviews:** Keep MRs small and focused. If you have a large MR taking too long to review, try splitting it into smaller ones (but ensure nothing breaks).
+</Tip>
+
+## Development Environment
+
+### Setting Up the Environment
+
+Enter a development environment with proper paths:
+
+```bash
+make env
+```
+
+This sets up the `PATH` with the prefix toolchain and opens a bash shell.
+
+### View Environment Variables
+
+```bash
+make setenv
+```
+
+This displays the current build configuration variables:
+- `ARCH` - Target architecture
+- `BOARD` - Target board
+- `CONFIG_NAME` - Configuration name
+- `BUILD` - Build directory
+
+### Visual Studio Code Configuration
+
+For VS Code setup, see [Visual Studio Code Configuration](https://doc.redox-os.org/book/coding-and-building.html#visual-studio-code-configuration).
+
+## Configuration Files
+
+Redox uses TOML configuration files for different build targets:
+
+- `config/x86_64/desktop.toml` - Desktop configuration
+- `config/x86_64/server.toml` - Server configuration
+- `config/x86_64/demo.toml` - Demo configuration
+- `config/tests.toml` - Testing configuration
+
+Switch configurations using:
+
+```bash
+make all CONFIG_NAME=desktop
+```
+
+## Continuous Integration
+
+The CI system automatically runs on merge requests targeting `master`:
+
+<Steps>
+  <Step title="Linting Stage">
+    - **rustfmt**: Checks code formatting
+    - **cargo-test**: Runs unit tests
+  </Step>
+  
+  <Step title="Test Stage">
+    - **img**: Builds system images
+    - **pkg**: Tests packaging for multiple architectures (x86_64, i586, aarch64, riscv64gc)
+  </Step>
+</Steps>
+
+## Common Workflows
+
+<AccordionGroup>
+  <Accordion title="Porting a New Application">
+    <Steps>
+      <Step title="Check for existing recipe">
+        ```bash
+        make find.app-name
+        ```
+        
+        Always verify a recipe doesn't already exist to avoid duplication.
+      </Step>
+      
+      <Step title="Create recipe">
+        See [Application Porting](https://doc.redox-os.org/book/porting-applications.html).
+      </Step>
+      
+      <Step title="Build and test">
+        ```bash
+        make r.new-recipe
+        ```
+      </Step>
+    </Steps>
+  </Accordion>
+  
+  <Accordion title="Fixing a Bug">
+    <Steps>
+      <Step title="Identify the component">
+        Use the debug tools and documentation to locate the issue.
+      </Step>
+      
+      <Step title="Make the fix">
+        Edit the relevant source files.
+      </Step>
+      
+      <Step title="Clean and rebuild">
+        ```bash
+        make cr.component-name
+        ```
+      </Step>
+      
+      <Step title="Test the fix">
+        See the [Testing Guide](/development/testing) and [Debugging Guide](/development/debugging).
+      </Step>
+    </Steps>
+  </Accordion>
+  
+  <Accordion title="Iterative Development">
+    For rapid iteration on a single component:
+    
+    ```bash
+    # Make changes, then:
+    make cr.component && make qemu
+    
+    # Or push to running image (requires mounting):
+    make rp.component
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Getting Help
+
+If you encounter issues during development:
+
+<CardGroup cols={2}>
+  <Card title="Developer FAQ" icon="circle-question" href="https://doc.redox-os.org/book/developer-faq.html">
+    Common questions and solutions
+  </Card>
+  
+  <Card title="Chat Rooms" icon="comments" href="https://doc.redox-os.org/book/chat.html">
+    Ask in Matrix or Discord
+  </Card>
+  
+  <Card title="File an Issue" icon="bug" href="https://doc.redox-os.org/book/filing-issues.html">
+    Report bugs or ask for help
+  </Card>
+  
+  <Card title="Build System Reference" icon="book" href="https://doc.redox-os.org/book/build-system-reference.html">
+    Complete build system documentation
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Debugging Guide" icon="bug" href="/development/debugging">
+    Learn how to debug Redox OS
+  </Card>
+  
+  <Card title="Testing Guide" icon="vial" href="/development/testing">
+    Learn how to test your changes
+  </Card>
+</CardGroup>

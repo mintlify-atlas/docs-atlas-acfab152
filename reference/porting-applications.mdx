@@ -1,0 +1,465 @@
+---
+title: Application Porting Guide
+description: Learn how to port applications to Redox OS using the Cookbook recipe system
+---
+
+## Overview
+
+Porting applications to Redox OS involves creating recipes in the Cookbook system. A recipe is a TOML file that describes how to download, build, and package software for Redox.
+
+<Warning>
+Always verify if a recipe for your program or library already exists before porting to avoid recipe duplication or breaking the build system.
+</Warning>
+
+## Before You Start
+
+### Prerequisites
+
+- Build system setup and up-to-date (see [Build System Reference](https://doc.redox-os.org/book/build-system-reference.html))
+- Familiarity with the target application's build system
+- Understanding of POSIX/Linux APIs
+
+### Common Porting Issues
+
+<Tip>
+If a program can't build or work, something may be missing in [relibc](https://gitlab.redox-os.org/redox-os/relibc), such as a POSIX/Linux function or there may be a bug.
+</Tip>
+
+## Recipe Structure
+
+Every recipe is stored in `recipes/<category>/<package-name>/recipe.toml`. The recipe consists of three main sections:
+
+### 1. Source Section
+
+Defines where to download the source code from.
+
+### 2. Build Section
+
+Specifies how to compile the application.
+
+### 3. Package Section
+
+Describes runtime dependencies and metadata.
+
+## Creating a Basic Recipe
+
+### Simple Rust Application
+
+For Rust applications hosted on GitLab:
+
+```toml
+[source]
+git = "https://gitlab.redox-os.org/redox-os/coreutils.git"
+
+[build]
+template = "cargo"
+```
+
+This minimal recipe:
+- Clones the git repository
+- Builds using `cargo build --release`
+- Installs binaries to `/usr/bin`
+
+### Application with Tarball Source
+
+For applications distributed as tarballs:
+
+```toml
+[source]
+tar = "https://www.cairographics.org/releases/cairo-1.18.4.tar.xz"
+blake3 = "b9fa14e02f85ec4e72396c62236c98502d04dbbdf8daf01ab9557a1c7aa7106e"
+patches = ["redox.patch"]
+
+[build]
+dependencies = [
+    "expat",
+    "freetype2",
+    "pixman",
+    "zlib"
+]
+template = "custom"
+script = """
+DYNAMIC_INIT
+CFLAGS="${CFLAGS} -DCAIRO_NO_MUTEX=1"
+cookbook_meson \
+    -Dxlib-xcb=enabled \
+    -Dtests=disabled
+"""
+```
+
+<Info>
+Always specify `blake3` checksums for reproducible builds.
+</Info>
+
+## Build Templates
+
+The Cookbook provides several build templates for common build systems.
+
+### Cargo Template
+
+For Rust projects:
+
+```toml
+[build]
+template = "cargo"
+cargoflags = ["--features", "extra-features"]
+cargopackages = ["package1", "package2"]
+```
+
+**Options:**
+- `cargopath` - Path to Cargo.toml if not in root
+- `cargoflags` - Additional flags for cargo build
+- `cargopackages` - Specific packages to build from workspace
+- `cargoexamples` - Example binaries to build
+
+### Configure Template
+
+For autotools-based projects:
+
+```toml
+[build]
+template = "configure"
+configureflags = [
+    "--disable-nls",
+    "--enable-static"
+]
+```
+
+Example from the dash recipe:
+
+```toml
+[source]
+git = "https://gitlab.redox-os.org/redox-os/dash.git"
+branch = "redox"
+
+[build]
+template = "custom"
+script = """
+DYNAMIC_INIT
+rsync -av --delete "${COOKBOOK_SOURCE}/" ./
+./autogen.sh
+./configure \
+    --host="${TARGET}" \
+    --prefix="" \
+    --enable-static \
+    cross_compiling=yes
+sed -i'' -e 's|#define HAVE_GETRLIMIT 1|/* #undef HAVE_GETRLIMIT */|g' config.h
+COOKBOOK_CONFIGURE="true"
+COOKBOOK_CONFIGURE_FLAGS=()
+cookbook_configure
+"""
+```
+
+### CMake Template
+
+For CMake-based projects:
+
+```toml
+[build]
+template = "cmake"
+cmakeflags = [
+    "-DBUILD_TESTING=OFF",
+    "-DENABLE_FEATURE=ON"
+]
+```
+
+### Meson Template
+
+For Meson-based projects:
+
+```toml
+[build]
+template = "meson"
+mesonflags = [
+    "-Dtests=disabled",
+    "-Ddocs=false"
+]
+```
+
+### Custom Template
+
+For projects requiring custom build scripts:
+
+```toml
+[build]
+template = "custom"
+script = """
+DYNAMIC_STATIC_INIT
+rsync -av --delete "${COOKBOOK_SOURCE}/" ./
+export CPPFLAGS="$CPPFLAGS -fPIC"
+${COOKBOOK_MAKE}
+${COOKBOOK_MAKE} install DESTDIR="${COOKBOOK_STAGE}" prefix="/usr"
+"""
+```
+
+## Dependencies
+
+### Build Dependencies
+
+Libraries and tools needed during compilation:
+
+```toml
+[build]
+dependencies = [
+    "curl",
+    "expat",
+    "openssl3",
+    "zlib"
+]
+```
+
+### Development Dependencies
+
+Additional dependencies for building (optional):
+
+```toml
+[build]
+dev-dependencies = [
+    "cmake",
+    "pkg-config"
+]
+```
+
+### Runtime Dependencies
+
+Packages required at runtime:
+
+```toml
+[package]
+dependencies = [
+    "ca-certificates",
+    "libssl"
+]
+```
+
+## Advanced Features
+
+### Applying Patches
+
+Store patches in the same directory as `recipe.toml`:
+
+```toml
+[source]
+tar = "https://example.com/app-1.0.tar.gz"
+blake3 = "abc123..."
+patches = [
+    "01_redox.patch",
+    "02_fix_build.patch"
+]
+```
+
+### Git Sources with Specific Revisions
+
+```toml
+[source]
+git = "https://gitlab.redox-os.org/redox-os/acid.git"
+branch = "master"
+rev = "06344744d3d55a5ac9a62a6059cb363d40699bbc"
+shallow_clone = true
+```
+
+<Tip>
+Specify `branch` and `rev` for reproducible builds.
+</Tip>
+
+### Using Another Package's Source
+
+Reuse source from another recipe:
+
+```toml
+[source]
+same_as = "../main-package"
+```
+
+### Optional Packages
+
+Create multiple packages from one recipe:
+
+```toml
+[[optional-packages]]
+name = "dev"
+dependencies = ["main-package"]
+files = [
+    "/usr/include/**",
+    "/usr/lib/*.a"
+]
+```
+
+## Build Script Variables
+
+The Cookbook provides several environment variables in build scripts:
+
+| Variable | Description |
+|----------|-------------|
+| `COOKBOOK_SOURCE` | Path to extracted source code |
+| `COOKBOOK_STAGE` | Installation staging directory |
+| `COOKBOOK_SYSROOT` | Sysroot with dependencies |
+| `COOKBOOK_CARGO` | Path to cargo binary |
+| `COOKBOOK_MAKE` | Path to make binary |
+| `COOKBOOK_MAKE_JOBS` | Number of parallel jobs |
+| `TARGET` | Target triple (e.g., `x86_64-unknown-redox`) |
+| `GNU_TARGET` | GNU-style target triple |
+
+### Helper Functions
+
+- `DYNAMIC_INIT` - Initialize for dynamic linking
+- `DYNAMIC_STATIC_INIT` - Initialize for static/dynamic linking
+- `cookbook_cargo` - Standard cargo build and install
+- `cookbook_configure` - Standard configure, make, install
+- `cookbook_meson` - Standard meson build
+
+## Testing Your Recipe
+
+### Build a Single Recipe
+
+```bash
+make r.recipe-name
+```
+
+### Build with Dependencies
+
+```bash
+make r.recipe-name.tar
+```
+
+### Clean and Rebuild
+
+```bash
+make cr.recipe-name
+```
+
+### Update Recipe Source
+
+```bash
+make u.recipe-name
+```
+
+## Local Development
+
+<Tip>
+For local changes, configure recipes to skip automatic updates. See [Local Recipe Changes](https://doc.redox-os.org/book/configuration-settings.html#local-recipe-changes).
+</Tip>
+
+Add to `.config/<target>/repo.toml`:
+
+```toml
+[packages]
+my-recipe = "local"
+```
+
+This prevents the build system from updating your local changes.
+
+## Common Patterns
+
+### Meta Packages
+
+Packages with no source, only dependencies:
+
+```toml
+[package]
+dependencies = [
+    "package1",
+    "package2",
+    "package3"
+]
+```
+
+### Complex Build Example
+
+From the `base` recipe:
+
+```toml
+[source]
+git = "https://gitlab.redox-os.org/redox-os/base.git"
+
+[build]
+template = "custom"
+script = """
+mkdir -pv "${COOKBOOK_STAGE}/usr/bin"
+for package in audiod ipcd ptyd; do
+    "${COOKBOOK_CARGO}" build \
+        --manifest-path "${COOKBOOK_SOURCE}/${package}/Cargo.toml" \
+        ${build_flags}
+    cp -v \
+        "target/${TARGET}/${build_type}/${package}" \
+        "${COOKBOOK_STAGE}/usr/bin/${package}"
+done
+"""
+```
+
+## Troubleshooting
+
+### Build Failures
+
+1. Check relibc for missing POSIX functions
+2. Verify all dependencies are listed
+3. Check if patches apply cleanly
+4. Review build logs in `build/<target>/<recipe>/`
+
+### Missing Functions
+
+If you encounter undefined references, the function may need to be implemented in:
+- [relibc](https://gitlab.redox-os.org/redox-os/relibc) - C library
+- [libredox](https://gitlab.redox-os.org/redox-os/libredox) - Redox system library
+
+### Debug Build
+
+Enable verbose output:
+
+```bash
+make VERBOSE=1 r.recipe-name
+```
+
+## Recipe Categories
+
+Organize recipes by category:
+
+- `archives/` - Compression tools
+- `core/` - Essential system components
+- `dev/` - Development tools
+- `games/` - Games and entertainment
+- `graphics/` - Graphics applications
+- `gui/` - GUI applications
+- `libs/` - Libraries
+- `net/` - Network applications
+- `shells/` - Command shells
+- `text/` - Text editors and processors
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Checksums" icon="shield-check">
+    Always specify `blake3` for tarball sources to ensure reproducible builds.
+  </Card>
+  
+  <Card title="Minimal Dependencies" icon="cubes">
+    Only list necessary dependencies to reduce build complexity.
+  </Card>
+  
+  <Card title="Upstream First" icon="code-branch">
+    Contribute Redox support upstream when possible instead of maintaining patches.
+  </Card>
+  
+  <Card title="Test Thoroughly" icon="vial">
+    Build and test your recipe before submitting.
+  </Card>
+</CardGroup>
+
+## Contributing Recipes
+
+Once your recipe is working:
+
+1. Test thoroughly on QEMU or real hardware
+2. Create a merge request to the [Redox repository](https://gitlab.redox-os.org/redox-os/redox)
+3. Post the MR link in the [MRs Matrix room](https://matrix.to/#/#redox-mrs:matrix.org)
+
+<Info>
+Read the full [Contributing Guide](https://doc.redox-os.org/book/creating-proper-pull-requests.html) for merge request guidelines.
+</Info>
+
+## See Also
+
+- [Recipe Format Reference](/reference/recipe-format) - Detailed recipe TOML format
+- [Cookbook System](/reference/cookbook) - Build system internals
+- [Build System Reference](https://doc.redox-os.org/book/build-system-reference.html) - Complete build system guide
+- [Configuration Settings](https://doc.redox-os.org/book/configuration-settings.html) - Configure build options

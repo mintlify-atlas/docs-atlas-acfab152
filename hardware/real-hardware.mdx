@@ -1,0 +1,457 @@
+---
+title: Running on Real Hardware
+description: Guide to installing and running Redox OS on physical hardware
+---
+
+Redox OS can be installed on real hardware, but compatibility varies significantly between systems. Review the hardware compatibility information before attempting installation.
+
+<Warning>
+**Important Safety Notice**
+
+Installing Redox on real hardware carries risks:
+- Potential data loss on existing systems
+- Boot loader issues may affect existing OS installations
+- Some hardware may not be supported or may cause system instability
+- ACPI and firmware bugs may cause unexpected behavior
+
+Always back up important data and test in a virtual machine first.
+</Warning>
+
+## Before You Begin
+
+<Steps>
+  <Step title="Check hardware compatibility">
+    Review the [Hardware Compatibility](/hardware/compatibility) page to see if your device has been tested with Redox.
+    
+    Pay special attention to:
+    - Boot loader compatibility (BIOS vs UEFI)
+    - Graphics support (VESA/GOP required)
+    - Network adapter compatibility
+    - Input device support (PS/2 recommended)
+  </Step>
+  
+  <Step title="Verify system requirements">
+    Ensure your hardware meets the [minimum requirements](/hardware/requirements):
+    - x86-64 or i686 processor
+    - 1-2 GB RAM
+    - 1 GB available storage
+    - BIOS or UEFI firmware
+  </Step>
+  
+  <Step title="Test in a virtual machine">
+    Before installing on real hardware, test Redox in [QEMU or VirtualBox](/hardware/virtual-machines) to familiarize yourself with the system.
+  </Step>
+  
+  <Step title="Prepare installation media">
+    Build or download a Redox ISO image and create bootable USB media.
+  </Step>
+  
+  <Step title="Backup your data">
+    **Critical:** Back up all important data before proceeding. Installation may affect existing partitions and boot configurations.
+  </Step>
+</Steps>
+
+## Supported Hardware
+
+<Card title="Best Compatibility" icon="check-circle" color="#10b981">
+  **Recommended systems:**
+  - Lenovo IdeaPad Y510P (x86-64)
+  - System76 Galago Pro (galp5)
+  - System76 Lemur Pro (lemp9)
+  
+  These systems boot to Orbital desktop with full or near-full functionality.
+</Card>
+
+<Info>
+For a complete list of tested hardware, see the [Hardware Compatibility](/hardware/compatibility) page.
+</Info>
+
+## Known Limitations
+
+Be aware of these limitations when running on real hardware:
+
+<AccordionGroup>
+  <Accordion title="ACPI Support">
+    - ACPI support is incomplete
+    - Some systems may have hardcoded kernel configurations
+    - Power management features may be limited
+    - Some devices may not boot due to ACPI issues
+  </Accordion>
+  
+  <Accordion title="Graphics">
+    - Only BIOS VESA and UEFI GOP are supported
+    - No native drivers for AMD, NVIDIA, or ARM GPUs
+    - Limited resolution options on some hardware
+    - Firmware bugs may affect available video modes
+  </Accordion>
+  
+  <Accordion title="Input Devices">
+    - I2C devices not supported (most laptop trackpads won't work)
+    - USB support varies by device
+    - PS/2 keyboard and mouse recommended for best compatibility
+    - Touchscreens not supported
+  </Accordion>
+  
+  <Accordion title="Storage">
+    - NVMe driver may livelock on some Dell XPS models
+    - Some SATA controllers may not be recognized
+    - USB storage support is experimental
+  </Accordion>
+  
+  <Accordion title="Network">
+    - Wi-Fi not supported
+    - Ethernet adapters: Intel e1000 family works best
+    - Some Realtek adapters supported
+    - Laptop wireless cards will not work
+  </Accordion>
+  
+  <Accordion title="Audio">
+    - Intel HDA (High Definition Audio) supported
+    - AC'97 supported on older systems
+    - Some systems may not detect audio output pins
+  </Accordion>
+</AccordionGroup>
+
+## Creating Installation Media
+
+### Build the ISO Image
+
+After building Redox, create a bootable ISO:
+
+```bash
+make live=yes
+```
+
+This creates: `build/<arch>/redox-live.iso`
+
+### Write to USB Drive
+
+<Warning>
+This will erase all data on the USB drive. Double-check the device name!
+</Warning>
+
+<Tabs>
+  <Tab title="Linux">
+    ```bash
+    # Find your USB device (e.g., /dev/sdb)
+    lsblk
+    
+    # Write the ISO to USB
+    sudo dd if=build/x86_64/redox-live.iso of=/dev/sdX bs=4M status=progress
+    sudo sync
+    ```
+    
+    Replace `/dev/sdX` with your actual USB device.
+  </Tab>
+  
+  <Tab title="macOS">
+    ```bash
+    # Find your USB device (e.g., /dev/disk2)
+    diskutil list
+    
+    # Unmount the device
+    diskutil unmountDisk /dev/diskX
+    
+    # Write the ISO to USB
+    sudo dd if=build/x86_64/redox-live.iso of=/dev/rdiskX bs=4m
+    sudo sync
+    ```
+    
+    Replace `/dev/diskX` with your actual USB device. Use `/dev/rdiskX` for faster writes.
+  </Tab>
+  
+  <Tab title="Windows">
+    Use a tool like:
+    - [Rufus](https://rufus.ie/) (recommended)
+    - [Etcher](https://www.balena.io/etcher/)
+    - [Win32 Disk Imager](https://sourceforge.net/projects/win32diskimager/)
+    
+    Select the Redox ISO and target USB device, then write.
+  </Tab>
+</Tabs>
+
+## Booting from USB
+
+<Steps>
+  <Step title="Insert USB drive">
+    Insert the USB drive containing the Redox ISO into your target computer.
+  </Step>
+  
+  <Step title="Access boot menu">
+    Restart the computer and enter the boot menu:
+    - **Common keys:** F12, F8, F10, ESC, or F2
+    - **Lenovo:** F12 or Fn+F12
+    - **Dell:** F12
+    - **HP:** F9 or ESC then F9
+    - **ASUS:** F8 or ESC
+  </Step>
+  
+  <Step title="Select USB device">
+    Choose the USB drive from the boot menu. You may see two entries:
+    - **UEFI:** USB device name (recommended for modern systems)
+    - **Legacy/BIOS:** USB device name (for older systems)
+  </Step>
+  
+  <Step title="Boot Redox">
+    The Redox bootloader should appear, presenting video resolution options.
+  </Step>
+</Steps>
+
+<Info>
+If the system doesn't boot from USB:
+- Check BIOS/UEFI settings
+- Disable Secure Boot (required for Redox)
+- Try both UEFI and Legacy boot modes
+- Verify the USB was written correctly
+</Info>
+
+## Firmware Compatibility
+
+### BIOS (Legacy)
+
+**Advantages:**
+- Works on older hardware
+- Simple boot process
+- Broader compatibility with legacy systems
+
+**Disadvantages:**
+- Limited video mode selection on some hardware
+- May have memory mapping issues on 32-bit systems
+- Boot loader bugs on specific models (e.g., ASUS ROG g55vw)
+
+### UEFI
+
+**Advantages:**
+- Better compatibility with modern hardware
+- GOP provides better graphics support
+- Recommended for new installations
+
+**Disadvantages:**
+- Requires Secure Boot to be disabled
+- Some systems may have UEFI firmware bugs
+- May fail on systems with incomplete ACPI tables
+
+<Tip>
+If you have issues booting with UEFI, try Legacy/BIOS mode, or vice versa.
+</Tip>
+
+## Installation Process
+
+<Warning>
+Redox does not yet have an automated installer. The live ISO runs entirely from USB.
+</Warning>
+
+### Live System
+
+The Redox live ISO boots into a temporary system:
+
+1. **Select resolution** - Choose from available video modes
+2. **Wait for boot** - System loads into memory (may take time)
+3. **Login** - Default user is typically configured
+4. **Explore** - Orbital desktop environment launches
+
+### Manual Installation to Hard Drive
+
+<Warning>
+Manual installation is for advanced users only and may result in data loss.
+</Warning>
+
+To install Redox to a hard drive:
+
+<Steps>
+  <Step title="Partition the disk">
+    Use the Redox installer tools or bootloader to create partitions.
+  </Step>
+  
+  <Step title="Format with RedoxFS">
+    Format the target partition with the RedoxFS filesystem.
+  </Step>
+  
+  <Step title="Copy system files">
+    Copy the Redox system files from the live image to the hard drive.
+  </Step>
+  
+  <Step title="Install bootloader">
+    Configure the bootloader to boot from the hard drive partition.
+  </Step>
+</Steps>
+
+<Info>
+Detailed installation instructions are beyond the scope of this guide. Join the [Redox Chat](https://matrix.to/#/#redox-join:matrix.org) for assistance with manual installation.
+</Info>
+
+## Boot Loader Considerations
+
+<Warning>
+**Multi-boot systems:**
+
+Redox's bootloader does not yet support automatic OS discovery. Installing Redox may affect your ability to boot other operating systems.
+
+For multi-boot setups:
+- Use a separate physical drive for Redox
+- Or use UEFI boot menu to select between drives
+- Backup existing bootloader configuration
+</Warning>
+
+## Architecture-Specific Notes
+
+<Tabs>
+  <Tab title="x86-64">
+    **Best Support**
+    
+    - Primary development platform
+    - Full feature set
+    - UEFI or BIOS boot
+    - Recommended for real hardware testing
+    
+    **Known Issues:**
+    - Some UEFI implementations may panic
+    - NVMe driver issues on Dell XPS 13
+  </Tab>
+  
+  <Tab title="i686 (32-bit)">
+    **Legacy Support**
+    
+    - Works on older hardware
+    - Some memory mapping limitations
+    - BIOS boot only (typically)
+    
+    **Known Issues:**
+    - `phys_to_virt overflow` panics on some systems
+    - Invalid memory mappings on certain models
+    - Limited modern hardware support
+  </Tab>
+  
+  <Tab title="ARM64">
+    **Experimental**
+    
+    - Raspberry Pi 3 Model B+ partially supported
+    - U-Boot firmware required
+    - UART serial console works
+    - Limited device support
+    
+    **Setup:**
+    - Use dedicated ARM board (e.g., Raspberry Pi)
+    - SD card boot
+    - Serial console for interaction
+  </Tab>
+</Tabs>
+
+## Troubleshooting Boot Issues
+
+<AccordionGroup>
+  <Accordion title="System hangs at resolution selection">
+    - Try different video modes
+    - Some firmware provides invalid resolution options
+    - Use a lower resolution (e.g., 1024x768)
+  </Accordion>
+  
+  <Accordion title="Bootloader panics or fails">
+    - Check hardware compatibility list
+    - Try different boot mode (UEFI vs BIOS)
+    - Disable Secure Boot in UEFI settings
+    - Some systems have known bootloader bugs
+  </Accordion>
+  
+  <Accordion title="Black screen after boot">
+    - System may have booted but display failed
+    - Try different resolution
+    - Check for serial output if available
+    - GPU may not be supported (only VESA/GOP work)
+  </Accordion>
+  
+  <Accordion title="System panics during boot">
+    Common panic causes:
+    - **ACPI errors:** Incomplete ACPI implementation
+    - **xhcid panics:** USB controller issues (ASUS PN41, BEELINK U59)
+    - **Memory errors:** 32-bit mapping issues on i686
+    
+    Try:
+    - Disabling USB in BIOS
+    - Using different architecture (x86-64 vs i686)
+  </Accordion>
+  
+  <Accordion title="Input devices don't work">
+    - Use PS/2 keyboard/mouse if available
+    - USB support varies by device and controller
+    - I2C trackpads don't work (use external USB mouse)
+    - Check hardware compatibility for specific model
+  </Accordion>
+  
+  <Accordion title="No network connectivity">
+    - Check if your network adapter is supported
+    - Intel e1000 family has best support
+    - Wi-Fi is not supported
+    - Some Ethernet controllers not recognized
+  </Accordion>
+</AccordionGroup>
+
+## Performance Considerations
+
+Real hardware performance varies:
+
+- **Modern systems (2015+):** Generally faster than VMs
+- **Legacy systems (pre-2010):** May have driver or firmware issues
+- **SSD vs HDD:** SSDs significantly improve boot and load times
+- **Multiple cores:** Redox supports SMP, but scaling varies
+
+## Reporting Hardware Results
+
+Help improve Redox hardware support by reporting your results:
+
+<Steps>
+  <Step title="Document your hardware">
+    - Vendor and model
+    - CPU architecture
+    - Firmware type (BIOS/UEFI)
+    - Redox version and image date
+  </Step>
+  
+  <Step title="Test functionality">
+    - Boot process (success/failure)
+    - Video output (resolutions, issues)
+    - Input devices (keyboard, mouse, trackpad)
+    - Network connectivity
+    - Audio output
+    - Storage access
+  </Step>
+  
+  <Step title="Collect logs">
+    - Take photos of error messages
+    - Note any panic messages
+    - Document boot behavior
+  </Step>
+  
+  <Step title="Submit report">
+    Follow the guidelines in the [Hardware Compatibility](/hardware/compatibility) page to submit your results to the [HARDWARE.md](https://gitlab.redox-os.org/redox-os/redox/blob/master/HARDWARE.md) document.
+  </Step>
+</Steps>
+
+<Card title="Join the Community" icon="comments">
+  Need help with hardware installation? Join the [Redox Matrix chat](https://matrix.to/#/#redox-join:matrix.org) for assistance and to share your hardware experiences.
+</Card>
+
+## Safety Reminders
+
+<Warning>
+**Before installing on real hardware:**
+
+- ✓ Back up all important data
+- ✓ Test in virtual machine first
+- ✓ Check hardware compatibility list
+- ✓ Understand boot loader limitations
+- ✓ Prepare for potential data loss
+- ✓ Have recovery media for existing OS ready
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Hardware Compatibility" icon="list-check" href="/hardware/compatibility">
+    View detailed compatibility reports
+  </Card>
+  
+  <Card title="Virtual Machines" icon="server" href="/hardware/virtual-machines">
+    Try Redox safely in QEMU or VirtualBox
+  </Card>
+</CardGroup>

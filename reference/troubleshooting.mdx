@@ -1,0 +1,133 @@
+---
+title: Troubleshooting
+description: Common issues and solutions for building and running Redox OS
+---
+
+## Build Issues
+
+### Common Build Problems
+
+If you encounter issues during the build process, try these solutions:
+
+#### SELinux Errors
+
+If your operating system does not use SELinux, set `USE_SELINUX` to `0` when calling `make all`:
+
+```sh
+make all USE_SELINUX=0
+```
+
+#### Build System Updates
+
+Make sure your build system is up-to-date. Run the bootstrap script again:
+
+```sh
+curl -sf https://gitlab.redox-os.org/redox-os/redox/raw/master/podman_bootstrap.sh -o podman_bootstrap.sh
+time bash -e podman_bootstrap.sh
+```
+
+#### Recipe Build Failures
+
+If a program can't build or work, something may be missing in [relibc](https://gitlab.redox-os.org/redox-os/relibc), such as a POSIX/Linux function or there may be a bug.
+
+#### Logging Errors
+
+Always log errors for debugging and when reporting issues:
+
+```sh
+your-command 2>&1 | tee file-name.log
+```
+
+### Local Recipe Changes
+
+If you want to make local changes in recipe sources:
+
+- Read the [Local Recipe Changes](https://doc.redox-os.org/book/configuration-settings.html#local-recipe-changes) section to learn how to disable automatic recipe source updates for one or multiple recipes
+- See [Cookbook Offline Mode](https://doc.redox-os.org/book/configuration-settings.html#cookbook-offline-mode) for all recipes
+
+### System Component Updates
+
+If you make changes to system components, drivers, or RedoxFS, you need to manually update initfs. See [How to Update initfs](https://doc.redox-os.org/book/coding-and-building.html#how-to-update-initfs).
+
+## Hardware Issues
+
+### Boot Problems
+
+#### Bootloader Issues
+
+Some common bootloader problems:
+
+- **Correct video mode not offered**: This is usually a firmware issue with certain hardware models
+- **Hangs after PIT initialization**: Known issue on some older hardware (e.g., Panasonic Toughbook CF-18)
+- **Bootloader panics in `alloc_zeroed_page_aligned`**: Can occur on systems with firmware issues
+
+For a complete list of hardware compatibility, see the [Hardware Compatibility](https://doc.redox-os.org/book/hardware-support.html) page.
+
+#### UEFI vs BIOS
+
+Some systems may boot successfully with UEFI but fail with BIOS (or vice versa). Try the alternative firmware mode if you encounter boot issues.
+
+### Device Support Issues
+
+#### Missing Hardware Support
+
+Current hardware limitations:
+
+- **Wi-Fi and Bluetooth**: Not supported yet
+- **GPUs**: AMD, NVIDIA, ARM, and PowerVR GPUs aren't supported yet (only BIOS VESA and UEFI GOP)
+- **I2C devices**: Not supported yet (use PS/2 or USB devices instead)
+- **USB support**: Varies by device model; some USB devices require specific drivers
+- **Touchpads**: Many laptops require I2C HID support for touchpads
+
+#### Network Connectivity
+
+- Some systems may lack Ethernet drivers for specific network cards
+- Wi-Fi is not currently supported
+- Use a supported Ethernet adapter for network connectivity
+
+#### Audio Issues
+
+- Some systems may not have audio support
+- The HDA driver may not find output pins on certain hardware
+
+### ACPI Support
+
+ACPI support is incomplete - some things are hardcoded in the kernel to work. This may cause issues on certain hardware configurations.
+
+## QEMU Testing Issues
+
+If you encounter errors in QEMU:
+
+- Try different QEMU settings
+- Verify your host operating system (Pop!_OS, Ubuntu, Debian, and Fedora are the recommended Linux distributions for testing/development)
+- Check QEMU version compatibility
+
+## Development Issues
+
+### Merge Request Reviews
+
+- If you want a quick review of your Merge Request, make it small
+- If your large Merge Request is taking too long to be reviewed and merged, try splitting it into smaller MRs (but ensure this doesn't break anything)
+
+### General Debugging Tips
+
+- If you have a problem that seems unsolvable, think about simple/obvious things you might have overlooked
+- Sometimes you may be very confident in your method but forget obvious things (this is very common)
+- Always verify the basics before diving into complex debugging
+
+## Getting Help
+
+If you can't resolve your issue:
+
+1. Check the [Developer FAQ](https://doc.redox-os.org/book/developer-faq.html) for common questions
+2. Search existing [GitLab issues](https://gitlab.redox-os.org/groups/redox-os/-/issues) for similar problems
+3. Ask for help in the community chat (see [Community](/reference/community) page)
+4. Create a new issue on GitLab with detailed logs and system information
+
+<Note>
+When creating issues, always include:
+- Your operating system and version
+- Redox build configuration
+- Complete error logs (use the logging command above)
+- Steps to reproduce the issue
+</Note>

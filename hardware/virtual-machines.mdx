@@ -1,0 +1,444 @@
+---
+title: Running in Virtual Machines
+description: Guide to running Redox OS in QEMU and VirtualBox virtual machines
+---
+
+Running Redox OS in a virtual machine is the easiest and safest way to try the operating system without affecting your existing setup.
+
+## QEMU (Recommended)
+
+QEMU is the primary development and testing platform for Redox OS and provides the best compatibility and performance.
+
+<Info>
+The Redox build system includes built-in QEMU support with optimized configurations for each architecture.
+</Info>
+
+### Quick Start
+
+After building Redox, you can launch it in QEMU with:
+
+```bash
+make qemu
+```
+
+This automatically configures QEMU with appropriate settings for your chosen architecture.
+
+### Architecture-Specific Configurations
+
+<Tabs>
+  <Tab title="x86-64">
+    **Default Configuration:**
+    - Machine: Q35
+    - CPU: Core 2 Duo (or host CPU with KVM)
+    - Cores: 4
+    - Memory: 2048 MB
+    - Firmware: UEFI (OVMF)
+    - Storage: NVMe
+    - Network: Intel e1000
+    - Graphics: Standard VGA
+    - Audio: Intel HDA
+    
+    **Command:**
+    ```bash
+    make qemu
+    ```
+  </Tab>
+  
+  <Tab title="i586">
+    **Default Configuration:**
+    - Machine: PC (i440FX)
+    - CPU: Pentium II (or host CPU with KVM)
+    - Cores: 1
+    - Memory: 1024 MB
+    - Firmware: BIOS
+    - Storage: ATA
+    - Network: Intel e1000
+    - Graphics: Standard VGA
+    - Audio: AC'97
+    
+    **Command:**
+    ```bash
+    make qemu ARCH=i586
+    ```
+  </Tab>
+  
+  <Tab title="ARM64">
+    **Default Configuration:**
+    - Machine: virt
+    - CPU: max
+    - Cores: 1
+    - Memory: 2048 MB
+    - Firmware: UEFI (AAVMF)
+    - Graphics: ramfb
+    - USB: XHCI with keyboard and tablet
+    
+    **Command:**
+    ```bash
+    make qemu ARCH=aarch64
+    ```
+  </Tab>
+  
+  <Tab title="RISC-V 64">
+    **Default Configuration:**
+    - Machine: virt (ACPI disabled)
+    - CPU: max
+    - Cores: 4
+    - Memory: 2048 MB
+    - Firmware: EDK2 RISC-V
+    - Graphics: ramfb
+    - Network: bridge
+    
+    **Command:**
+    ```bash
+    make qemu ARCH=riscv64gc
+    ```
+  </Tab>
+</Tabs>
+
+### QEMU Customization Options
+
+You can customize the QEMU configuration using make variables:
+
+<AccordionGroup>
+  <Accordion title="Hardware Acceleration">
+    **Enable KVM (Linux) or HVF (macOS):**
+    ```bash
+    make qemu kvm=yes
+    ```
+    
+    KVM/HVF is automatically enabled when the host and guest architectures match. Disable with `kvm=no`.
+  </Accordion>
+  
+  <Accordion title="Storage Configuration">
+    **Change disk type:**
+    ```bash
+    make qemu disk=nvme    # NVMe (default for x86-64)
+    make qemu disk=ata     # AHCI/IDE
+    make qemu disk=virtio  # VirtIO block
+    make qemu disk=usb     # USB storage
+    ```
+  </Accordion>
+  
+  <Accordion title="Graphics Options">
+    **Change GPU type:**
+    ```bash
+    make qemu gpu=vga          # Standard VGA (default)
+    make qemu gpu=virtio       # VirtIO GPU
+    make qemu gpu=virtio-gl    # VirtIO GPU with OpenGL
+    make qemu gpu=no           # Headless (serial only)
+    ```
+  </Accordion>
+  
+  <Accordion title="Network Configuration">
+    **Network options:**
+    ```bash
+    make qemu net=no           # No network
+    make qemu net=redir        # User mode with port forwarding
+    make qemu net=rtl8139      # RTL8139 adapter
+    make qemu net=virtio       # VirtIO network
+    make qemu bridge=br0       # Bridged networking
+    ```
+    
+    **Port forwarding (net=redir):**
+    - SSH: localhost:8022 → guest:22
+    - HTTP: localhost:8080 → guest:80
+    - Additional: 8081, 8082, 8083, 64126
+  </Accordion>
+  
+  <Accordion title="Audio Configuration">
+    **Audio options:**
+    ```bash
+    make qemu audio=no         # No audio
+    make qemu audio=ac97       # AC'97 (i586 default)
+    # Intel HDA is default for x86-64
+    ```
+  </Accordion>
+  
+  <Accordion title="CPU and Memory">
+    **Adjust resources:**
+    ```bash
+    make qemu QEMU_SMP=8 QEMU_MEM=4096
+    ```
+  </Accordion>
+  
+  <Accordion title="Debugging">
+    **GDB debugging:**
+    ```bash
+    make qemu gdb=yes         # Wait for GDB connection
+    make qemu gdb=nonblock    # Allow GDB attach without blocking
+    ```
+    
+    GDB will listen on port 1234.
+  </Accordion>
+</AccordionGroup>
+
+### Advanced QEMU Examples
+
+<CodeGroup>
+```bash Performance Mode
+# Maximum performance with KVM and VirtIO
+make qemu kvm=yes disk=virtio net=virtio gpu=virtio
+```
+
+```bash Legacy Hardware
+# Emulate older i586 system
+make qemu ARCH=i586 disk=ata audio=ac97
+```
+
+```bash Headless Server
+# No graphics, serial console only
+make qemu gpu=no net=redir serial=yes
+```
+
+```bash Development Setup
+# Multiple CPUs, extra memory, debugging enabled
+make qemu QEMU_SMP=8 QEMU_MEM=4096 gdb=nonblock
+```
+</CodeGroup>
+
+### Serial Console
+
+QEMU provides serial console access by default:
+
+<Info>
+Serial output is multiplexed to stdio. Use Ctrl+A, C to access the QEMU monitor.
+</Info>
+
+To log serial output to a file:
+
+```bash
+make qemu qemu_serial_logfile=serial.log
+```
+
+### QEMU Firmware Locations
+
+The build system automatically detects firmware files:
+
+**UEFI for x86-64:**
+- `/usr/share/ovmf/OVMF.fd`
+- `/usr/share/OVMF/OVMF_CODE.fd`
+- `/usr/share/qemu/edk2-x86_64-code.fd`
+
+**UEFI for ARM64:**
+- `/usr/share/AAVMF/AAVMF_CODE.fd`
+- `/usr/share/qemu/edk2-aarch64-code.fd`
+
+**UEFI for RISC-V:**
+- `/usr/share/qemu-efi-riscv64/RISCV_VIRT_CODE.fd`
+- `/usr/share/edk2/riscv/RISCV_VIRT_CODE.fd`
+
+## VirtualBox
+
+VirtualBox provides an alternative virtualization option with a graphical interface.
+
+<Warning>
+VirtualBox support is less mature than QEMU. Some features may not work correctly.
+</Warning>
+
+### Quick Start
+
+After building Redox, create and launch a VirtualBox VM:
+
+```bash
+make virtualbox
+```
+
+This will:
+1. Delete any existing "Redox" VM
+2. Create a new VM with recommended settings
+3. Convert and attach the hard drive image
+4. Start the VM
+
+### VirtualBox Configuration
+
+The automated setup configures:
+
+| Setting | Value |
+|---------|-------|
+| **Memory** | 2048 MB |
+| **Video Memory** | 32 MB |
+| **Storage Controller** | Intel AHCI (SATA) |
+| **Network** | NAT with Intel PRO/1000 MT Desktop (82540EM) |
+| **Audio** | Intel HD Audio |
+| **USB** | Disabled (recommended for compatibility) |
+| **Keyboard** | PS/2 |
+| **Mouse** | PS/2 |
+
+### Manual VirtualBox Setup
+
+If you prefer to configure VirtualBox manually:
+
+<Steps>
+  <Step title="Create a new VM">
+    - Name: Redox
+    - Type: Other
+    - Version: Other/Unknown (64-bit)
+  </Step>
+  
+  <Step title="Configure system settings">
+    - Base Memory: 2048 MB or more
+    - Processors: 1 or more
+    - Enable I/O APIC
+  </Step>
+  
+  <Step title="Configure display">
+    - Video Memory: 32 MB
+    - Graphics Controller: VBoxVGA or VMSVGA
+  </Step>
+  
+  <Step title="Attach storage">
+    1. Create a SATA controller
+    2. Convert the Redox image to VDI format:
+       ```bash
+       VBoxManage convertfromraw build/x86_64/harddrive.img build/x86_64/harddrive.vdi
+       ```
+    3. Attach the VDI file to the SATA controller
+  </Step>
+  
+  <Step title="Configure network">
+    - Adapter 1: Enabled
+    - Attached to: NAT
+    - Adapter Type: Intel PRO/1000 MT Desktop
+    - Enable cable connected
+  </Step>
+  
+  <Step title="Configure audio">
+    - Enable Audio
+    - Audio Controller: Intel HD Audio
+  </Step>
+  
+  <Step title="Disable USB">
+    USB support should be disabled for better compatibility with Redox.
+  </Step>
+</Steps>
+
+### VirtualBox Network Capture
+
+The automated setup enables network packet capture:
+
+```bash
+cat build/x86_64/network.pcap | wireshark -k -i -
+```
+
+### VirtualBox Serial Log
+
+Serial output is logged to:
+
+```
+build/x86_64/serial.log
+```
+
+## Comparison: QEMU vs VirtualBox
+
+| Feature | QEMU | VirtualBox |
+|---------|------|------------|
+| **Performance** | Excellent with KVM/HVF | Good |
+| **Compatibility** | Best | Good |
+| **Setup** | Automated via Makefile | Automated via Makefile |
+| **GUI** | Optional (GTK/SDL) | Native GUI |
+| **Debugging** | Built-in GDB support | Limited |
+| **Multi-arch** | x86, ARM, RISC-V | x86 only |
+| **Recommended For** | Development, testing | Desktop evaluation |
+
+## Live ISO vs Hard Drive Image
+
+Redox can boot from either format:
+
+<Tabs>
+  <Tab title="Live ISO">
+    **Build and run:**
+    ```bash
+    make live=yes qemu
+    ```
+    
+    **Advantages:**
+    - No installation required
+    - Boot from CD-ROM
+    - Safe for testing
+    
+    **Disadvantages:**
+    - Read-only system
+    - No persistence
+    - Slower boot
+  </Tab>
+  
+  <Tab title="Hard Drive Image">
+    **Build and run:**
+    ```bash
+    make qemu
+    ```
+    
+    **Advantages:**
+    - Faster boot
+    - Persistent storage
+    - Full system installation
+    
+    **Disadvantages:**
+    - Requires disk image creation
+  </Tab>
+</Tabs>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="QEMU fails to start">
+    **Check firmware installation:**
+    ```bash
+    ls /usr/share/ovmf/OVMF.fd
+    ls /usr/share/qemu/edk2-*.fd
+    ```
+    
+    Install the appropriate UEFI firmware package for your distribution:
+    - **Ubuntu/Debian:** `ovmf qemu-efi-aarch64 qemu-efi-arm`
+    - **Fedora:** `edk2-ovmf edk2-aarch64`
+    - **Arch:** `edk2-ovmf edk2-armvirt`
+  </Accordion>
+  
+  <Accordion title="Black screen after boot">
+    Try different GPU options:
+    ```bash
+    make qemu gpu=virtio
+    make qemu gpu=no serial=yes
+    ```
+  </Accordion>
+  
+  <Accordion title="No network connectivity">
+    Check network configuration:
+    ```bash
+    make qemu net=redir  # Use port forwarding
+    make qemu net=no     # Disable network
+    ```
+  </Accordion>
+  
+  <Accordion title="Poor performance">
+    Enable hardware acceleration:
+    ```bash
+    make qemu kvm=yes              # Linux
+    # Or for macOS, HVF is auto-detected
+    ```
+    
+    And use VirtIO devices:
+    ```bash
+    make qemu kvm=yes disk=virtio net=virtio
+    ```
+  </Accordion>
+  
+  <Accordion title="VirtualBox VM won't boot">
+    - Ensure USB is disabled
+    - Try switching graphics controller
+    - Check that the VDI conversion succeeded
+    - Verify SATA controller is set to AHCI
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Running on Real Hardware" icon="server" href="/hardware/real-hardware">
+    Ready to install Redox on physical hardware
+  </Card>
+  
+  <Card title="Building Redox" icon="hammer" href="/building/podman-build">
+    Learn how to build Redox from source
+  </Card>
+</CardGroup>

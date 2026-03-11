@@ -1,0 +1,186 @@
+---
+title: relibc
+description: Redox's C standard library written in Rust
+---
+
+## Overview
+
+**relibc** is a C standard library (POSIX-compatible libc) implementation written in Rust for Redox OS. It provides the standard C library interface while leveraging Rust's safety guarantees under the hood.
+
+<Card title="relibc Repository" icon="code" href="https://gitlab.redox-os.org/redox-os/relibc">
+  View the relibc source code on GitLab
+</Card>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="POSIX Compliance" icon="check-circle">
+    Implements standard C library functions and POSIX APIs
+  </Card>
+  <Card title="Rust Safety" icon="shield-check">
+    Core implementation in Rust for memory safety
+  </Card>
+  <Card title="Linux Compatibility" icon="linux">
+    Provides compatibility with Linux applications
+  </Card>
+  <Card title="BSD Support" icon="code-branch">
+    Compatible with many BSD programs
+  </Card>
+</CardGroup>
+
+## Purpose
+
+relibc serves as the bridge between C/C++ applications and Redox OS:
+
+- **Application compatibility**: Allows running existing C/C++ software on Redox
+- **POSIX interface**: Provides familiar POSIX APIs for developers
+- **Safe implementation**: Uses Rust internally for critical operations
+- **Cross-platform**: Works on both Redox and Linux (for testing)
+
+## Architecture
+
+relibc is structured as a hybrid implementation:
+
+```rust
+// External C API
+extern "C" fn open(path: *const c_char, flags: c_int) -> c_int {
+    // Rust implementation calling Redox schemes
+    // Provides safety while maintaining C compatibility
+}
+```
+
+## Building with relibc
+
+Programs link against relibc automatically in the Redox build system:
+
+```toml
+[packages]
+relibc = {}      # C standard library
+libgcc = {}      # GCC runtime
+libstdcxx = {}   # C++ standard library
+```
+
+## Standard Library Support
+
+relibc implements most standard C library functions:
+
+<Tabs>
+  <Tab title="stdio">
+    ```c
+    // Standard I/O functions
+    FILE *fopen(const char *path, const char *mode);
+    int fprintf(FILE *stream, const char *format, ...);
+    int printf(const char *format, ...);
+    size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
+    size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
+    ```
+  </Tab>
+  <Tab title="stdlib">
+    ```c
+    // Memory and process management
+    void *malloc(size_t size);
+    void free(void *ptr);
+    void *calloc(size_t nmemb, size_t size);
+    void *realloc(void *ptr, size_t size);
+    void exit(int status);
+    int system(const char *command);
+    ```
+  </Tab>
+  <Tab title="string">
+    ```c
+    // String operations
+    size_t strlen(const char *s);
+    char *strcpy(char *dest, const char *src);
+    int strcmp(const char *s1, const char *s2);
+    void *memcpy(void *dest, const void *src, size_t n);
+    void *memset(void *s, int c, size_t n);
+    ```
+  </Tab>
+  <Tab title="unistd">
+    ```c
+    // POSIX system calls
+    ssize_t read(int fd, void *buf, size_t count);
+    ssize_t write(int fd, const void *buf, size_t count);
+    int close(int fd);
+    pid_t fork(void);
+    int execve(const char *path, char *const argv[], char *const envp[]);
+    ```
+  </Tab>
+</Tabs>
+
+## Device File Mapping
+
+relibc translates standard device files to Redox schemes:
+
+```c
+// Standard device files mapped through relibc
+open("/dev/null", O_RDWR);    // Maps to null: scheme
+open("/dev/random", O_RDONLY); // Maps to rand: scheme
+open("/dev/tty", O_RDWR);     // Maps to libc:tty
+open("/dev/stdin", O_RDONLY);  // Maps to libc:stdin
+```
+
+## Porting Applications
+
+Many applications can be ported to Redox with minimal changes thanks to relibc:
+
+<Steps>
+  <Step title="Build with Redox toolchain">
+    Use the Redox cross-compilation toolchain that links against relibc
+  </Step>
+  <Step title="Handle platform differences">
+    Some system-specific features may need conditional compilation
+  </Step>
+  <Step title="Test compatibility">
+    Test the application on Redox to identify any missing APIs
+  </Step>
+</Steps>
+
+<Info>
+  Redox provides source code compatibility with many Rust, Linux, and BSD programs through relibc.
+</Info>
+
+## Configuration
+
+relibc is part of the base system:
+
+```toml
+[packages]
+relibc = {}
+
+[dependencies]
+libc = "0.2"  # Rust programs can use the libc crate
+```
+
+## Cargo Integration
+
+The Redox build system includes relibc in its dependencies:
+
+```toml
+[dependencies]
+libc = "0.2"
+termion = "4"  # Terminal library that uses relibc
+```
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="relibc Repository" icon="gitlab" href="https://gitlab.redox-os.org/redox-os/relibc">
+    Source code and development
+  </Card>
+  <Card title="Redox Book" icon="book" href="https://doc.redox-os.org/book/">
+    Documentation on porting applications
+  </Card>
+  <Card title="POSIX Compliance" icon="list-check" href="https://doc.redox-os.org/book/">
+    Supported POSIX features
+  </Card>
+  <Card title="Developer FAQ" icon="question" href="https://doc.redox-os.org/book/developer-faq.html">
+    Common questions about relibc
+  </Card>
+</CardGroup>
+
+## Maintainer
+
+<Card title="Jeremy Soller (@jackpot51)" icon="user">
+  Primary maintainer of relibc
+</Card>

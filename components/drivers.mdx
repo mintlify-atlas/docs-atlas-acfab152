@@ -1,0 +1,342 @@
+---
+title: Device Drivers
+description: Hardware drivers for Redox OS
+---
+
+## Overview
+
+Redox OS uses a **userspace driver model** where device drivers run as separate processes outside the kernel. This microkernel approach provides better isolation, stability, and security compared to traditional monolithic kernels.
+
+<Card title="Base Repository" icon="code" href="https://gitlab.redox-os.org/redox-os/base">
+  View essential system components and drivers on GitLab
+</Card>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Userspace Drivers" icon="user">
+    Drivers run as isolated userspace processes
+  </Card>
+  <Card title="Scheme-based" icon="network-wired">
+    Accessed through Redox's URL-like scheme system
+  </Card>
+  <Card title="Hot-pluggable" icon="plug">
+    Dynamic driver loading and unloading
+  </Card>
+  <Card title="Fault Isolation" icon="shield">
+    Driver crashes don't bring down the system
+  </Card>
+</CardGroup>
+
+## Driver Architecture
+
+The Redox driver model follows the microkernel philosophy:
+
+```text
+┌─────────────────────────────┐
+│      Application            │
+├─────────────────────────────┤
+│   Device Scheme (driver)    │
+├─────────────────────────────┤
+│      Microkernel            │
+├─────────────────────────────┤
+│      Hardware               │
+└─────────────────────────────┘
+```
+
+## Driver Initialization
+
+Drivers are initialized through the init system:
+
+```bash
+# Driver initialization script
+requires_weak 00_base
+pcid-spawner  # PCI device driver spawner
+```
+
+The PCI daemon (`pcid-spawner`) automatically loads drivers for detected hardware.
+
+## Driver Categories
+
+<Tabs>
+  <Tab title="Storage">
+    ### Storage Drivers
+    
+    Drivers for disk and storage devices:
+    
+    - **NVMe**: NVMe SSD support
+    - **AHCI**: SATA controller support
+    - **IDE**: Legacy IDE controller support
+    - **USB Storage**: USB mass storage devices
+    
+    ```bash
+    # Storage devices appear as schemes
+    ls /scheme/disk/
+    ls /scheme/nvme0
+    ```
+  </Tab>
+  <Tab title="Network">
+    ### Network Drivers
+    
+    Network interface drivers:
+    
+    - **Intel**: Intel network adapters
+    - **Realtek**: Realtek network cards
+    - **Virtio**: Virtual network devices
+    
+    ```bash
+    # Network initialization
+    notify smolnetd
+    nowait dhcpd
+    ```
+    
+    Network schemes available:
+    ```toml
+    schemes = [
+      "ip",    # IP networking
+      "icmp",  # ICMP protocol
+      "tcp",   # TCP protocol
+      "udp",   # UDP protocol
+    ]
+    ```
+  </Tab>
+  <Tab title="Graphics">
+    ### Display Drivers
+    
+    Graphics and display drivers:
+    
+    - **VESA**: VESA BIOS Extensions
+    - **Intel HD**: Intel integrated graphics
+    - **Virtio GPU**: Virtual GPU support
+    
+    ```toml
+    schemes = [
+      "display.vesa",  # VESA display
+      "display*",      # All displays
+    ]
+    ```
+  </Tab>
+  <Tab title="Input">
+    ### Input Drivers
+    
+    Keyboard, mouse, and other input devices:
+    
+    - **PS/2**: PS/2 keyboard and mouse
+    - **USB HID**: USB keyboards and mice
+    - **Serial**: Serial port input
+    
+    ```toml
+    schemes = [
+      "event",   # Event handling
+      "serio",   # Serial I/O
+      "pty",     # Pseudo-terminals
+    ]
+    ```
+  </Tab>
+  <Tab title="System">
+    ### System Drivers
+    
+    Essential system device drivers:
+    
+    - **RTC**: Real-time clock
+    - **Random**: Random number generation
+    - **Null/Zero**: Null and zero devices
+    
+    ```bash
+    # System device files
+    /dev/null -> /scheme/null
+    /dev/random -> /scheme/rand
+    /dev/zero -> /scheme/zero
+    ```
+  </Tab>
+</Tabs>
+
+## Base System Drivers
+
+Essential drivers are included in the base package:
+
+```toml
+[packages]
+base = {}           # Essential system components and drivers
+base-initfs = {}    # Initial ramdisk drivers
+```
+
+<Info>
+  The `base` package includes core drivers needed for system boot and operation.
+</Info>
+
+## Driver Schemes
+
+Drivers expose functionality through schemes:
+
+### Base Schemes
+
+```toml
+schemes = [
+  "rand",    # Random number generator
+  "null",    # Null device
+  "zero",    # Zero device
+  "log",     # System logging
+]
+```
+
+### Network Schemes
+
+```toml
+schemes = [
+  "ip",      # IP protocol
+  "icmp",    # ICMP protocol
+  "tcp",     # TCP protocol
+  "udp",     # UDP protocol
+]
+```
+
+### IPC Schemes
+
+```toml
+schemes = [
+  "shm",         # Shared memory
+  "chan",        # Channels
+  "uds_stream",  # Unix domain sockets (stream)
+  "uds_dgram",   # Unix domain sockets (datagram)
+]
+```
+
+## PCI Driver Management
+
+The PCI daemon manages PCI device drivers:
+
+```bash
+# PCI device enumeration
+pcid-spawner
+
+# Automatically loads drivers for:
+# - Network cards
+# - Storage controllers
+# - Graphics cards
+# - USB controllers
+```
+
+## Network Configuration
+
+Network drivers are configured through the init system:
+
+```bash
+# Network initialization
+notify smolnetd  # Network daemon
+nowait dhcpd     # DHCP client
+```
+
+Network configuration files:
+
+```toml
+# DNS server
+[[files]]
+path = "/etc/net/dns"
+data = "9.9.9.9"
+
+# IP address (QEMU default)
+[[files]]
+path = "/etc/net/ip"
+data = "10.0.2.15"
+
+# Router
+[[files]]
+path = "/etc/net/ip_router"
+data = "10.0.2.2"
+
+# Subnet mask
+[[files]]
+path = "/etc/net/ip_subnet"
+data = "255.255.255.0"
+```
+
+## Audio Drivers
+
+Audio device support:
+
+```toml
+schemes = [
+  "audio",  # Audio device access
+]
+```
+
+## USB Support
+
+USB drivers provide support for:
+
+- USB storage devices
+- USB input devices (keyboard, mouse)
+- USB network adapters
+- USB serial ports
+
+## Driver Development
+
+Developing drivers for Redox:
+
+<Steps>
+  <Step title="Implement the scheme interface">
+    Create a scheme provider that implements the required operations
+  </Step>
+  <Step title="Register the scheme">
+    Register your driver's scheme with the kernel
+  </Step>
+  <Step title="Handle requests">
+    Process open, read, write, and other operations
+  </Step>
+  <Step title="Test in isolation">
+    Test the driver in userspace before deployment
+  </Step>
+</Steps>
+
+<Warning>
+  Driver bugs only affect the driver process, not the entire system. This makes development and testing safer.
+</Warning>
+
+## Hardware Compatibility
+
+For detailed hardware compatibility information, see:
+
+<Card title="Hardware Support" icon="server" href="https://doc.redox-os.org/book/hardware-support.html">
+  Complete list of supported hardware
+</Card>
+
+## Advantages of Userspace Drivers
+
+<CardGroup cols={2}>
+  <Card title="Stability" icon="check">
+    Driver crashes don't crash the kernel
+  </Card>
+  <Card title="Security" icon="lock">
+    Drivers run with limited privileges
+  </Card>
+  <Card title="Development" icon="code">
+    Easier to develop and debug
+  </Card>
+  <Card title="Updates" icon="arrows-rotate">
+    Drivers can be updated without rebooting
+  </Card>
+</CardGroup>
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="Base Repository" icon="gitlab" href="https://gitlab.redox-os.org/redox-os/base">
+    Essential drivers and components
+  </Card>
+  <Card title="Hardware Support" icon="server" href="https://doc.redox-os.org/book/hardware-support.html">
+    Supported hardware list
+  </Card>
+  <Card title="Redox Book" icon="book" href="https://doc.redox-os.org/book/">
+    Driver development guide
+  </Card>
+  <Card title="Developer FAQ" icon="question" href="https://doc.redox-os.org/book/developer-faq.html">
+    Common driver questions
+  </Card>
+</CardGroup>
+
+## Maintainer
+
+<Card title="Jeremy Soller (@jackpot51)" icon="user">
+  Primary maintainer of base drivers
+</Card>

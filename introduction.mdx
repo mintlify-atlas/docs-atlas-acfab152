@@ -1,0 +1,100 @@
+---
+title: Introduction to Redox OS
+description: A Unix-like microkernel operating system written in Rust, focusing on safety, reliability, and correctness.
+---
+
+# Welcome to Redox OS
+
+Redox is an open-source operating system written in Rust, a language with focus on safety, efficiency and high performance. Redox uses a microkernel architecture, and aims to be reliable, secure, usable, correct, and free.
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get started building Redox in minutes
+  </Card>
+  <Card title="Architecture" icon="diagram-project" href="/architecture/overview">
+    Learn about the microkernel design
+  </Card>
+  <Card title="Build System" icon="hammer" href="/build-system/overview">
+    Understand the build system
+  </Card>
+  <Card title="Contributing" icon="code-pull-request" href="/development/contributing">
+    Contribute to Redox OS
+  </Card>
+</CardGroup>
+
+## What is Redox?
+
+Redox is not just a kernel, it's a **full-featured operating system**, providing components (file system, display server, core utilities, etc.) that together make up a functional and convenient operating system. Redox uses the COSMIC desktop apps, and provides source code compatibility with many Rust, Linux and BSD programs.
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Microkernel Architecture" icon="cube">
+    Improved security and reliability through minimal kernel design
+  </Card>
+  <Card title="Written in Rust" icon="rust">
+    Memory safety without garbage collection
+  </Card>
+  <Card title="POSIX Compatible" icon="terminal">
+    Source compatibility with Linux and BSD programs through relibc
+  </Card>
+  <Card title="Modern Filesystem" icon="hard-drive">
+    RedoxFS with copy-on-write support and snapshots
+  </Card>
+  <Card title="Orbital Display Server" icon="window">
+    Lightweight display server and window manager
+  </Card>
+  <Card title="Ion Shell" icon="code">
+    Modern shell with scripting capabilities
+  </Card>
+</CardGroup>
+
+## Inspiration
+
+Redox is inspired by previous operating systems, including:
+
+- **seL4** - Formal verification and security
+- **MINIX** - Microkernel architecture
+- **Plan 9** - Everything is a file
+- **Linux** - Hardware compatibility
+- **BSD** - Userland utilities and design philosophy
+
+## Philosophy
+
+Redox follows these core principles:
+
+1. **Safety** - Written in Rust for memory safety
+2. **Reliability** - Microkernel isolates failures
+3. **Security** - Minimal attack surface, capability-based security
+4. **Correctness** - Formal methods where practical
+5. **Freedom** - Open source under MIT license
+
+## Getting Started
+
+<Steps>
+  <Step title="Choose your build method">
+    Select between [Podman](/build-system/podman-build) (recommended) or [native](/build-system/native-build) build
+  </Step>
+  <Step title="Follow the quickstart">
+    Build your first Redox image using our [quickstart guide](/quickstart)
+  </Step>
+  <Step title="Run Redox">
+    Test Redox in a [virtual machine](/hardware/virtual-machines) or on [real hardware](/hardware/real-hardware)
+  </Step>
+  <Step title="Explore and contribute">
+    Learn the [architecture](/architecture/overview) and start [contributing](/development/contributing)
+  </Step>
+</Steps>
+
+## Community
+
+Join the Redox community:
+
+- **Chat**: [Matrix](https://matrix.to/#/#redox-join:matrix.org) or [Discord](https://discord.gg/JfggvrHGDY)
+- **GitLab**: [redox-os](https://gitlab.redox-os.org/redox-os)
+- **GitHub**: [redox-os/redox](https://github.com/redox-os/redox)
+- **Website**: [redox-os.org](https://www.redox-os.org)
+
+<Note>
+  Redox OS follows the [Rust Code of Conduct](https://www.rust-lang.org/policies/code-of-conduct). We are committed to providing a welcoming and inclusive environment for all contributors.
+</Note>

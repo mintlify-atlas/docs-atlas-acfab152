@@ -1,0 +1,235 @@
+---
+title: Orbital
+description: The display server and window manager for Redox OS
+---
+
+## Overview
+
+**Orbital** is the display server and window manager for Redox OS. It provides the graphical environment and window management system, integrating seamlessly with the microkernel architecture.
+
+<Card title="Orbital Repository" icon="code" href="https://gitlab.redox-os.org/redox-os/orbital">
+  View the Orbital source code on GitLab
+</Card>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Lightweight" icon="feather">
+    Minimal resource usage for efficient graphics
+  </Card>
+  <Card title="Scheme-based" icon="network-wired">
+    Integrated with Redox's scheme system
+  </Card>
+  <Card title="Rust Implementation" icon="shield">
+    Memory-safe graphics stack
+  </Card>
+  <Card title="Modern UI" icon="desktop">
+    Clean, modern interface with COSMIC desktop apps
+  </Card>
+</CardGroup>
+
+## Architecture
+
+Orbital follows Redox's microkernel philosophy:
+
+- **Userspace server**: Runs as a regular userspace process
+- **Scheme interface**: Accessed through the `orbital:` scheme
+- **Compositor**: Handles window composition and rendering
+- **Event system**: Manages input events and window focus
+
+## Display Scheme Access
+
+Applications access Orbital through the scheme system:
+
+```toml
+[user_schemes.user]
+schemes = [
+  "orbital",        # Orbital window system
+  "display.vesa",   # VESA display driver
+  "display*",       # All display drivers
+  # ... other schemes
+]
+```
+
+## Window Management
+
+Orbital provides modern window management features:
+
+<Tabs>
+  <Tab title="Window Operations">
+    ```rust
+    // Create a window through the orbital scheme
+    use std::fs::File;
+    
+    let window = File::create("orbital:myapp/800/600/title")?;
+    // Creates a window: app name / width / height / title
+    ```
+  </Tab>
+  <Tab title="Event Handling">
+    ```rust
+    // Read window events
+    use std::io::Read;
+    
+    let mut event_buf = [0u8; 32];
+    window.read(&mut event_buf)?;
+    
+    // Handle mouse, keyboard, and window events
+    ```
+  </Tab>
+  <Tab title="Rendering">
+    ```rust
+    // Draw to window buffer
+    use std::io::Write;
+    
+    let pixel_data = vec![0xFFu8; 800 * 600 * 4];
+    window.write(&pixel_data)?;
+    
+    // Update display
+    window.sync_all()?;
+    ```
+  </Tab>
+</Tabs>
+
+## Display Drivers
+
+Orbital works with various display drivers:
+
+- **VESA**: Standard VESA BIOS Extensions support
+- **Native drivers**: Hardware-specific accelerated drivers
+- **Virtual display**: For virtual machines
+
+```bash
+# Display drivers are accessed through schemes
+ls /scheme/display.vesa
+ls /scheme/display*
+```
+
+## COSMIC Desktop
+
+Redox OS uses the COSMIC desktop environment with Orbital:
+
+<CardGroup cols={2}>
+  <Card title="COSMIC Files" icon="folder">
+    Modern file manager application
+  </Card>
+  <Card title="COSMIC Term" icon="terminal">
+    Terminal emulator with Ion shell
+  </Card>
+  <Card title="COSMIC Edit" icon="pen">
+    Text editor for development
+  </Card>
+  <Card title="COSMIC Apps" icon="grid">
+    Suite of desktop applications
+  </Card>
+</CardGroup>
+
+## Configuration
+
+Orbital configuration is managed through the system:
+
+```toml
+# Font and icon directories
+[[files]]
+path = "/usr/share/ui/fonts"
+data = "/usr/share/fonts"
+symlink = true
+
+[[files]]
+path = "/usr/share/ui/icons"
+data = "/usr/share/icons"
+symlink = true
+```
+
+## Display Server Initialization
+
+Orbital is typically started by the init system:
+
+```bash
+# Orbital starts automatically with the GUI configuration
+# Managed by the init system
+```
+
+## Graphics Stack
+
+The Redox graphics stack consists of:
+
+```text
+┌─────────────────────────────┐
+│   Application (COSMIC)      │
+├─────────────────────────────┤
+│   Orbital (Display Server)  │
+├─────────────────────────────┤
+│   Display Driver (Scheme)   │
+├─────────────────────────────┤
+│   Hardware                  │
+└─────────────────────────────┘
+```
+
+## Input Handling
+
+Orbital manages various input devices:
+
+- **Keyboard**: Standard keyboard input
+- **Mouse**: Pointer device support
+- **Touch**: Touch screen support (where available)
+
+```bash
+# Input events are routed through the event scheme
+cat /scheme/event
+```
+
+## Performance
+
+Orbital is designed for efficiency:
+
+- **Fast composition**: Optimized window composition
+- **Low latency**: Minimal input-to-display latency
+- **Efficient rendering**: Smart redraw strategies
+- **Memory efficient**: Careful memory management
+
+<Note>
+  Orbital benefits from Rust's zero-cost abstractions, providing high performance without sacrificing safety.
+</Note>
+
+## Screenshots
+
+Redox OS with Orbital provides a modern desktop experience:
+
+<CardGroup cols={3}>
+  <Card title="Desktop" icon="image">
+    ![Orbital Desktop](https://gitlab.redox-os.org/redox-os/website/-/raw/master/static/img/screenshot/orbital-visual.png)
+  </Card>
+  <Card title="COSMIC Programs" icon="window-restore">
+    ![COSMIC Apps](https://gitlab.redox-os.org/redox-os/website/-/raw/master/static/img/screenshot/cosmic-programs.png)
+  </Card>
+  <Card title="Terminal" icon="terminal">
+    ![COSMIC Term](https://gitlab.redox-os.org/redox-os/website/-/raw/master/static/img/screenshot/cosmic-term-screenfetch.png)
+  </Card>
+</CardGroup>
+
+<Info>
+  See more [screenshots and videos](https://www.redox-os.org/screens/) of Redox OS in action.
+</Info>
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="Orbital Repository" icon="gitlab" href="https://gitlab.redox-os.org/redox-os/orbital">
+    Source code and development
+  </Card>
+  <Card title="Redox Screenshots" icon="image" href="https://www.redox-os.org/screens/">
+    See Orbital in action
+  </Card>
+  <Card title="Redox Book" icon="book" href="https://doc.redox-os.org/book/">
+    Display system documentation
+  </Card>
+  <Card title="Try Redox" icon="rocket" href="https://doc.redox-os.org/book/trying-out-redox.html">
+    Run Redox with Orbital
+  </Card>
+</CardGroup>
+
+## Maintainer
+
+<Card title="Jeremy Soller (@jackpot51)" icon="user">
+  Primary maintainer of Orbital
+</Card>

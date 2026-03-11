@@ -1,80 +1,288 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start
+description: Get started building Redox OS in minutes
 ---
 
-## Get started in three steps
+# Quick Start Guide
 
-Get your documentation site running locally and make your first customization.
+Get Redox OS up and running quickly on your system. This guide will walk you through building a Redox OS image using the recommended Podman build method.
 
-### Step 1: Set up your local environment
+<Info>
+  **New to Redox?** This quick start focuses on getting you a working Redox image fast. For detailed installation and build options, see the [Installation Guide](/installation).
+</Info>
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+## What is Redox OS?
 
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
+Redox is a Unix-like operating system written in Rust with a microkernel design. Key features include:
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Memory Safe" icon="shield">
+    Written entirely in Rust for memory safety
+  </Card>
+  <Card title="Microkernel" icon="cube">
+    Fault isolation and improved security
+  </Card>
+  <Card title="POSIX Compatible" icon="terminal">
+    Run Linux and BSD programs
+  </Card>
+  <Card title="Modern Tooling" icon="hammer">
+    Comprehensive build system with Podman
+  </Card>
 </CardGroup>
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+## Prerequisites
+
+Before building Redox, ensure you have:
+
+- **Linux, macOS, or BSD** system (Windows via WSL2)
+- **At least 8 GB RAM** (16 GB recommended)
+- **30-60 GB free disk space**
+- **Reliable internet connection** for downloading dependencies
+- **Podman or Docker** (Podman recommended)
+
+## Build Methods
+
+Redox supports two build methods:
+
+<Tabs>
+  <Tab title="Podman (Recommended)">
+    **Podman build** uses containers for a consistent build environment:
+    
+    - ✅ Isolated from host system
+    - ✅ Consistent dependencies
+    - ✅ Works on any Linux distro
+    - ✅ No need to install build dependencies
+    
+    Best for: Most users, especially beginners
+  </Tab>
+  <Tab title="Native">
+    **Native build** uses your host system directly:
+    
+    - ✅ Faster builds (no container overhead)
+    - ✅ Direct access to build artifacts
+    - ✅ Better for active development
+    - ⚠️ Requires manual dependency installation
+    
+    Best for: Advanced users, active developers
+  </Tab>
+</Tabs>
+
+## Quick Start: Podman Build
+
+<Steps>
+  <Step title="Install Podman">
+    Install Podman on your system:
+
+    <CodeGroup>
+    ```bash Ubuntu/Debian
+    sudo apt install podman
+    ```
+
+    ```bash Fedora
+    sudo dnf install podman
+    ```
+
+    ```bash Arch
+    sudo pacman -S podman
+    ```
+
+    ```bash macOS
+    brew install podman
+    podman machine init
+    podman machine start
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Download and Run Bootstrap Script">
+    Download the Podman bootstrap script and run it:
+
+    ```bash
+    curl -sf https://gitlab.redox-os.org/redox-os/redox/raw/master/podman_bootstrap.sh -o podman_bootstrap.sh
+    time bash -e podman_bootstrap.sh
+    ```
+
+    <Note>
+      The bootstrap script will:
+      - Clone the Redox repository
+      - Build a Podman container with all dependencies
+      - Set up the build environment
+      
+      This takes 5-15 minutes depending on your internet connection.
+    </Note>
+  </Step>
+
+  <Step title="Navigate to Redox Directory">
+    ```bash
+    cd redox
+    ```
+  </Step>
+
+  <Step title="Build Redox">
+    Build a complete Redox OS image:
+
+    ```bash
+    make all
+    ```
+
+    <Warning>
+      On systems without SELinux (like Ubuntu), use:
+      ```bash
+      make all USE_SELINUX=0
+      ```
+    </Warning>
+
+    The build process takes **30-90 minutes** depending on your hardware. It will:
+    - Download and compile all packages
+    - Build the kernel and userspace
+    - Create a bootable disk image
+  </Step>
+
+  <Step title="Run Redox in QEMU">
+    Once the build completes, start Redox in QEMU:
+
+    ```bash
+    make qemu
+    ```
+
+    <Tip>
+      For KVM acceleration (much faster), use:
+      ```bash
+      make qemu kvm=yes
+      ```
+    </Tip>
+
+    You should see Redox boot and reach the Orbital desktop environment!
+  </Step>
+</Steps>
+
+## Build Configuration
+
+You can customize your build with different configurations:
+
+<Tabs>
+  <Tab title="Desktop (Default)">
+    Full desktop environment with COSMIC apps:
+    ```bash
+    make all CONFIG_NAME=x86_64/desktop
+    ```
+  </Tab>
+  
+  <Tab title="Server">
+    Minimal server configuration:
+    ```bash
+    make all CONFIG_NAME=x86_64/server
+    ```
+  </Tab>
+  
+  <Tab title="Demo">
+    Demo configuration with example programs:
+    ```bash
+    make all CONFIG_NAME=x86_64/demo
+    ```
+  </Tab>
+  
+  <Tab title="Minimal">
+    Absolute minimum bootable system:
+    ```bash
+    make all CONFIG_NAME=x86_64/minimal
+    ```
+  </Tab>
+</Tabs>
+
+## Architecture Support
+
+Build for different CPU architectures:
+
+<CodeGroup>
+```bash x86_64 (Default)
+make all ARCH=x86_64
+```
+
+```bash ARM64 (Raspberry Pi)
+make all ARCH=aarch64 CONFIG_NAME=aarch64/raspi3bp/minimal
+```
+
+```bash i586 (32-bit x86)
+make all ARCH=i586
+```
+
+```bash RISC-V
+make all ARCH=riscv64gc
+```
+</CodeGroup>
+
+## Common Make Targets
+
+Here are the most useful make commands:
+
+| Command | Description |
+|---------|-------------|
+| `make all` | Build complete OS image |
+| `make live` | Build live ISO image |
+| `make qemu` | Run in QEMU emulator |
+| `make mount` | Mount the filesystem for inspection |
+| `make clean` | Clean build artifacts |
+| `make rebuild` | Clean and rebuild from scratch |
+
+<Accordion title="View all make targets">
+  See the complete [Make Commands Reference](/reference/make-commands) for all available targets and options.
+</Accordion>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Explore the Architecture" icon="diagram-project" href="/architecture/overview">
+    Learn about Redox's microkernel design
+  </Card>
+  <Card title="Build System Details" icon="hammer" href="/build-system/overview">
+    Understand the build system in depth
+  </Card>
+  <Card title="Start Contributing" icon="code-pull-request" href="/development/contributing">
+    Join the Redox development community
+  </Card>
+  <Card title="Hardware Compatibility" icon="microchip" href="/hardware/compatibility">
+    Check if your hardware is supported
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Build fails with 'Permission denied'">
+    On non-SELinux systems, make sure to use:
+    ```bash
+    make all USE_SELINUX=0
+    ```
+  </Accordion>
+
+  <Accordion title="QEMU shows black screen">
+    Try using software rendering:
+    ```bash
+    make qemu vga=no
+    ```
+  </Accordion>
+
+  <Accordion title="Build is very slow">
+    - Enable KVM if on Linux: `make qemu kvm=yes`
+    - Use a native build instead of Podman for faster iteration
+    - Ensure you have enough RAM (16 GB recommended)
+  </Accordion>
+
+  <Accordion title="Container build fails">
+    Clean the container and rebuild:
+    ```bash
+    make container_clean
+    bash podman_bootstrap.sh
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Getting Help
+
+<Card title="Need Help?" icon="life-ring">
+  - **Chat**: Join our [Matrix](https://matrix.to/#/#redox-join:matrix.org) or [Discord](https://discord.gg/JfggvrHGDY)
+  - **Issues**: File issues on [GitLab](https://gitlab.redox-os.org/redox-os/redox)
+  - **Documentation**: See the [Troubleshooting Guide](/reference/troubleshooting)
+  - **FAQ**: Check the [Frequently Asked Questions](/reference/faq)
+</Card>
