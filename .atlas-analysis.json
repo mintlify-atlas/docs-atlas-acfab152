@@ -1,0 +1,122 @@
+{
+  "projectType": "general",
+  "projectName": "Redox OS",
+  "projectDescription": "A Unix-like microkernel operating system written in Rust, focusing on safety, reliability, and correctness.",
+  "theme": "aspen",
+  "primaryColor": "#E67E22",
+  "lightColor": null,
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Build System",
+            "pages": [
+              "build-system/overview",
+              "build-system/podman-build",
+              "build-system/native-build",
+              "build-system/configuration",
+              "build-system/recipes"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/microkernel",
+              "architecture/components",
+              "architecture/schemes"
+            ]
+          },
+          {
+            "group": "Components",
+            "pages": [
+              "components/kernel",
+              "components/redoxfs",
+              "components/relibc",
+              "components/ion-shell",
+              "components/orbital",
+              "components/drivers"
+            ]
+          },
+          {
+            "group": "Development",
+            "pages": [
+              "development/contributing",
+              "development/workflow",
+              "development/debugging",
+              "development/testing"
+            ]
+          },
+          {
+            "group": "Hardware",
+            "pages": [
+              "hardware/compatibility",
+              "hardware/requirements",
+              "hardware/virtual-machines",
+              "hardware/real-hardware"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "groups": [
+          {
+            "group": "Build Commands",
+            "pages": [
+              "reference/make-commands",
+              "reference/repo-tool",
+              "reference/configuration-options"
+            ]
+          },
+          {
+            "group": "Porting",
+            "pages": [
+              "reference/porting-applications",
+              "reference/recipe-format",
+              "reference/cookbook"
+            ]
+          },
+          {
+            "group": "Support",
+            "pages": [
+              "reference/troubleshooting",
+              "reference/faq",
+              "reference/community"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Microkernel architecture for improved security and reliability",
+    "Written entirely in Rust for memory safety",
+    "POSIX compatibility through relibc C library",
+    "RedoxFS - a modern filesystem with copy-on-write support",
+    "Orbital display server and window manager",
+    "Ion shell with modern scripting features",
+    "Comprehensive build system with Podman support"
+  ],
+  "publicApiSurface": [
+    "make all - Build complete OS image",
+    "make live - Build live ISO image",
+    "make image - Rebuild OS image from scratch",
+    "repo - Repository management tool",
+    "Cookbook recipe system",
+    "Configuration files (base.toml, desktop.toml, server.toml)",
+    "podman_bootstrap.sh - Podman build environment setup",
+    "native_bootstrap.sh - Native build environment setup"
+  ]
+}
